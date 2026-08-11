@@ -1,0 +1,8 @@
+rules:
+  - id: vibe-sql-string-concat
+    patterns:
+      - pattern-regex: 'f".*(?i)(select|insert|update|delete)\s.*\{.*\}.*"'
+    message: "Potential SQL Injection. Use parameterized queries instead of f-strings."
+    languages:
+      - python
+    severity: ERROR

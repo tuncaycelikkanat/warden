@@ -1,0 +1,11 @@
+rules:
+  - id: vibe-missing-input-validation
+    patterns:
+      - pattern: |
+          @$APP.$METHOD(...)
+          def $FUNC(..., $X: dict, ...):
+              ...
+    message: "Missing input validation: Use a Pydantic model instead of 'dict' for request payloads."
+    languages:
+      - python
+    severity: WARNING
