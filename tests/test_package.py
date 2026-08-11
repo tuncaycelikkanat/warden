@@ -17,3 +17,19 @@ async def test_get_pypi_metadata_nonexistent_package():
     metadata = await service.get_pypi_metadata("asdkjaskdj123")
     
     assert metadata is None
+
+@pytest.mark.asyncio
+async def test_calculate_risk_score_popular_package():
+    service = PackageCheckerService()
+    result = await service.calculate_risk_score("requests")
+    
+    assert result["risk_level"] == "low"
+    assert "requests" in result["package"]
+
+@pytest.mark.asyncio
+async def test_calculate_risk_score_nonexistent_package():
+    service = PackageCheckerService()
+    result = await service.calculate_risk_score("asdkjaskdj123_nonexistent")
+    
+    assert result["risk_level"] == "high"
+    assert "Package not found" in result["details"][0]
