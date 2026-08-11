@@ -51,3 +51,7 @@ yarn-error.log*
 .tox/
 htmlcov/
 .pytest_cache/
+
+# Database
+*.db
+*.sqlite3
