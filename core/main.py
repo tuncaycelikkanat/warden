@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from core.infra.database import create_db_and_tables
+from core.api.scan import router as scan_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -8,6 +9,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="warden API", lifespan=lifespan)
+
+app.include_router(scan_router)
 
 @app.get("/api/v1/health")
 async def health_check():
