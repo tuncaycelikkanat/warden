@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const postData = JSON.stringify({ file_path: filePath });
 
 		const options = {
-			hostname: 'localhost',
+			hostname: '127.0.0.1',
 			port: 8000,
 			path: '/api/v1/scan',
 			method: 'POST',
@@ -54,12 +54,11 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 
 					// Hatalı satırların altını çizme (Diagnostics)
-					if (result.findings_json) {
-						let findings = typeof result.findings_json === 'string' ? JSON.parse(result.findings_json) : result.findings_json;
-						if (findings.results && findings.results.length > 0) {
+					if (result.findings && Array.isArray(result.findings)) {
+						if (result.findings.length > 0) {
 							const diagnostics: vscode.Diagnostic[] = [];
 							
-							for (const r of findings.results) {
+							for (const r of result.findings) {
 								const line = (r.start && r.start.line) ? r.start.line - 1 : 0;
 								const range = new vscode.Range(line, 0, line, 100);
 								const message = `WARDEN: ${r.extra?.message || 'Güvenlik Açığı'}`;
@@ -77,6 +76,9 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				} catch (e) {
 					console.error('Warden API yanıtı okunamadı.', e);
+					if (isManual) {
+						vscode.window.showErrorMessage('Warden API yanıtı okunamadı veya sunucudan hata döndü.');
+					}
 				}
 			});
 		});
