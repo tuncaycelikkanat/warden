@@ -1,26 +1,67 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as http from 'http';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "warden" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
 	const disposable = vscode.commands.registerCommand('warden.scan', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Warden taraması başlatılıyor...');
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('Lütfen taramak için bir dosya açın.');
+			return;
+		}
+
+		const filePath = editor.document.uri.fsPath;
+		if (!filePath.endsWith('.py')) {
+			vscode.window.showWarningMessage('Şu an sadece Python (.py) dosyaları destekleniyor.');
+			return;
+		}
+
+		vscode.window.showInformationMessage(`Warden taraması başlatılıyor: ${filePath}`);
+
+		const postData = JSON.stringify({ file_path: filePath });
+
+		const options = {
+			hostname: 'localhost',
+			port: 8000,
+			path: '/api/v1/scan',
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Content-Length': Buffer.byteLength(postData)
+			}
+		};
+
+		const req = http.request(options, (res) => {
+			let data = '';
+
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
+
+			res.on('end', () => {
+				try {
+					const result = JSON.parse(data);
+					if (result.risk_level === 'high') {
+						vscode.window.showErrorMessage(`🚨 YÜKSEK RİSK: ${filePath} dosyasında güvenlik açığı bulundu!`);
+					} else if (result.risk_level === 'medium') {
+						vscode.window.showWarningMessage(`⚠️ ORTA RİSK: ${filePath} dosyasında uyarılar var.`);
+					} else {
+						vscode.window.showInformationMessage(`✅ GÜVENLİ: ${filePath} dosyası temiz.`);
+					}
+				} catch (e) {
+					vscode.window.showErrorMessage('Warden API yanıtı okunamadı.');
+				}
+			});
+		});
+
+		req.on('error', (e) => {
+			vscode.window.showErrorMessage(`Warden sunucusuna bağlanılamadı: ${e.message}. Sunucunun (localhost:8000) çalıştığından emin olun.`);
+		});
+
+		req.write(postData);
+		req.end();
 	});
 
 	context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
