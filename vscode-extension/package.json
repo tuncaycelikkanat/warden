@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "warden.helloWorld",
-        "title": "Hello World"
+        "command": "warden.scan",
+        "title": "Warden: Tara"
       }
     ]
   },
