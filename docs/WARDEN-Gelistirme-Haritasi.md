@@ -125,7 +125,7 @@ Yayın tarihi + indirme sayısı üzerinden basit bir puanlama fonksiyonu yaz (n
 En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `python-Levenshtein` kütüphanesiyle isim benzerliği hesapla.
 ✅ *Bittiğinde göreceğin:* `reqeusts` (yazım hatalı) gibi bir isim verdiğinde, sistem "`requests`'e çok benziyor, dikkat et" diyor.
 
-**Adım 2.5 — Endpoint'e bağla**
+**[x] Adım 2.5 — Endpoint'e bağla**
 `POST /api/v1/packages/check` endpoint'ini yaz.
 ✅ *Bittiğinde göreceğin:* `curl` ile paket adı gönderdiğinde risk değerlendirmesi JSON olarak dönüyor.
 
