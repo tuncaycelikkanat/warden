@@ -1,21 +1,27 @@
 import * as vscode from 'vscode';
 import * as http from 'http';
 
+let diagnosticCollection: vscode.DiagnosticCollection;
+
 export function activate(context: vscode.ExtensionContext) {
-	const disposable = vscode.commands.registerCommand('warden.scan', () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			vscode.window.showErrorMessage('Lütfen taramak için bir dosya açın.');
-			return;
-		}
+	diagnosticCollection = vscode.languages.createDiagnosticCollection('warden');
+	context.subscriptions.push(diagnosticCollection);
 
-		const filePath = editor.document.uri.fsPath;
+	const scanFile = (filePath: string, uri: vscode.Uri, isManual: boolean = false) => {
 		if (!filePath.endsWith('.py')) {
-			vscode.window.showWarningMessage('Şu an sadece Python (.py) dosyaları destekleniyor.');
+			if (isManual) {
+				vscode.window.showWarningMessage('Şu an sadece Python (.py) dosyaları destekleniyor.');
+			}
 			return;
 		}
 
-		vscode.window.showInformationMessage(`Warden taraması başlatılıyor: ${filePath}`);
+		if (isManual) {
+			vscode.window.showInformationMessage(`Warden taraması başlatılıyor: ${filePath}`);
+		} else {
+			console.log(`Otomatik Warden taraması tetiklendi: ${filePath}`);
+		}
+		
+		diagnosticCollection.delete(uri); // Eski çizgileri temizle o dosya için
 
 		const postData = JSON.stringify({ file_path: filePath });
 
@@ -32,36 +38,77 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const req = http.request(options, (res) => {
 			let data = '';
-
-			res.on('data', (chunk) => {
-				data += chunk;
-			});
-
+			res.on('data', (chunk) => { data += chunk; });
 			res.on('end', () => {
 				try {
 					const result = JSON.parse(data);
-					if (result.risk_level === 'high') {
-						vscode.window.showErrorMessage(`🚨 YÜKSEK RİSK: ${filePath} dosyasında güvenlik açığı bulundu!`);
-					} else if (result.risk_level === 'medium') {
-						vscode.window.showWarningMessage(`⚠️ ORTA RİSK: ${filePath} dosyasında uyarılar var.`);
-					} else {
-						vscode.window.showInformationMessage(`✅ GÜVENLİ: ${filePath} dosyası temiz.`);
+					
+					if (isManual) {
+						if (result.risk_level === 'high') {
+							vscode.window.showErrorMessage(`🚨 YÜKSEK RİSK: ${filePath} dosyasında güvenlik açığı bulundu!`);
+						} else if (result.risk_level === 'medium') {
+							vscode.window.showWarningMessage(`⚠️ ORTA RİSK: ${filePath} dosyasında uyarılar var.`);
+						} else {
+							vscode.window.showInformationMessage(`✅ GÜVENLİ: ${filePath} dosyası temiz.`);
+						}
+					}
+
+					// Hatalı satırların altını çizme (Diagnostics)
+					if (result.findings_json) {
+						let findings = typeof result.findings_json === 'string' ? JSON.parse(result.findings_json) : result.findings_json;
+						if (findings.results && findings.results.length > 0) {
+							const diagnostics: vscode.Diagnostic[] = [];
+							
+							for (const r of findings.results) {
+								const line = (r.start && r.start.line) ? r.start.line - 1 : 0;
+								const range = new vscode.Range(line, 0, line, 100);
+								const message = `WARDEN: ${r.extra?.message || 'Güvenlik Açığı'}`;
+								
+								const diagnostic = new vscode.Diagnostic(
+									range,
+									message,
+									vscode.DiagnosticSeverity.Error
+								);
+								diagnostics.push(diagnostic);
+							}
+							
+							diagnosticCollection.set(uri, diagnostics);
+						}
 					}
 				} catch (e) {
-					vscode.window.showErrorMessage('Warden API yanıtı okunamadı.');
+					console.error('Warden API yanıtı okunamadı.', e);
 				}
 			});
 		});
 
 		req.on('error', (e) => {
-			vscode.window.showErrorMessage(`Warden sunucusuna bağlanılamadı: ${e.message}. Sunucunun (localhost:8000) çalıştığından emin olun.`);
+			if (isManual) {
+				vscode.window.showErrorMessage(`Warden sunucusuna bağlanılamadı: ${e.message}. Sunucunun (localhost:8000) çalıştığından emin olun.`);
+			}
+			console.error(`Warden sunucusuna bağlanılamadı: ${e.message}`);
 		});
 
 		req.write(postData);
 		req.end();
-	});
+	};
 
+	// 1. Manuel Komut
+	const disposable = vscode.commands.registerCommand('warden.scan', () => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('Lütfen taramak için bir dosya açın.');
+			return;
+		}
+		scanFile(editor.document.uri.fsPath, editor.document.uri, true);
+	});
 	context.subscriptions.push(disposable);
+
+	// 2. Otomatik Kaydetme Olayı (Adım 4.4 & 4.5)
+	const saveDisposable = vscode.workspace.onDidSaveTextDocument((document) => {
+		console.log(`Dosya kaydedildi, taranıyor: ${document.uri.fsPath}`);
+		scanFile(document.uri.fsPath, document.uri, false);
+	});
+	context.subscriptions.push(saveDisposable);
 }
 
 export function deactivate() {}

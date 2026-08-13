@@ -169,11 +169,11 @@ Command Palette'ten çağrılabilen, sadece bir bildirim (notification) göstere
 Eklenti içinden `fetch` ile `/api/v1/health` endpoint'ine istek at, sonucu bildirim olarak göster.
 ✅ *Bittiğinde göreceğin:* Eklenti, arka planda çalışan Python servisiyle "konuşuyor".
 
-**Adım 4.4 — Dosya kaydetme olayını yakala**
+**[x] Adım 4.4 — Dosya kaydetme olayını yakala**
 `onDidSaveTextDocument` olayına bağlan, kaydedilen dosyanın yolunu konsola yazdır.
 ✅ *Bittiğinde göreceğin:* Herhangi bir dosyayı kaydettiğinde Debug Console'da dosya yolu görünüyor.
 
-**Adım 4.5 — Kaydetmede taramayı tetikle**
+**[x] Adım 4.5 — Kaydetmede taramayı tetikle**
 Kaydedilen dosyayı `/api/v1/scan`'e gönder, sonucu al.
 ✅ *Bittiğinde göreceğin:* Dosya kaydettiğinde arka planda gerçek bir tarama çalışıyor (henüz görsel çıktı yok, konsolda görüyorsun).
 
