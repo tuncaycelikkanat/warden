@@ -133,7 +133,7 @@ En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `pyt
 
 ## 4. Milestone 3 — Git Hook Entegrasyonu (İlk Uçtan Uca Kullanım!)
 
-**Adım 3.1 — Basit bir shell betiği yaz**
+**[x] Adım 3.1 — Basit bir shell betiği yaz**
 `git-hooks/pre-commit` dosyasını oluştur; şimdilik yalnızca "WARDEN çalışıyor" yazdırsın.
 ✅ *Bittiğinde göreceğin:* Bir test commit attığında terminalde bu mesajı görüyorsun.
 
