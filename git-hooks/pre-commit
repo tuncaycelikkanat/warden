@@ -1,3 +1,12 @@
 #!/bin/bash
+echo "WARDEN çalışıyor..."
 
-echo "WARDEN çalışıyor"
+FILES=$(git diff --cached --name-only)
+if [ -z "$FILES" ]; then
+    exit 0
+fi
+
+echo "Değişen dosyalar:"
+for file in $FILES; do
+    echo " - $file"
+done

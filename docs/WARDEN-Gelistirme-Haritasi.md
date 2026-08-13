@@ -137,7 +137,7 @@ En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `pyt
 `git-hooks/pre-commit` dosyasını oluştur; şimdilik yalnızca "WARDEN çalışıyor" yazdırsın.
 ✅ *Bittiğinde göreceğin:* Bir test commit attığında terminalde bu mesajı görüyorsun.
 
-**Adım 3.2 — Değişen dosyaları tespit et**
+**[x] Adım 3.2 — Değişen dosyaları tespit et**
 Betik içinde `git diff --cached --name-only` ile commit'e giren dosyaları listele.
 ✅ *Bittiğinde göreceğin:* Betik, commit ettiğin dosyaların isimlerini terminalde listeliyor.
 
