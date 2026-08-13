@@ -161,11 +161,11 @@ Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 `yo code` (Yeoman generator) ile TypeScript eklenti şablonu oluştur.
 ✅ *Bittiğinde göreceğin:* F5'e basınca yeni bir VS Code penceresi açılıyor, eklentin "yüklü" görünüyor.
 
-**Adım 4.2 — Basit bir komut ekle**
+**[x] Adım 4.2 — Basit bir komut ekle**
 Command Palette'ten çağrılabilen, sadece bir bildirim (notification) gösteren bir komut yaz.
 ✅ *Bittiğinde göreceğin:* `Ctrl+Shift+P` → komutunu bul → çalıştır → bildirim çıkıyor.
 
-**Adım 4.3 — Core Engine'e HTTP isteği at**
+**[x] Adım 4.3 — Core Engine'e HTTP isteği at**
 Eklenti içinden `fetch` ile `/api/v1/health` endpoint'ine istek at, sonucu bildirim olarak göster.
 ✅ *Bittiğinde göreceğin:* Eklenti, arka planda çalışan Python servisiyle "konuşuyor".
 
