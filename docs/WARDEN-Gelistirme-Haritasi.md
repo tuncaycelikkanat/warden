@@ -157,7 +157,7 @@ Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 
 ## 5. Milestone 4 — VS Code Eklentisi (Görsel Geri Bildirim)
 
-**Adım 4.1 — Boş bir VS Code eklentisi iskeleti oluştur**
+**[x] Adım 4.1 — Boş bir VS Code eklentisi iskeleti oluştur**
 `yo code` (Yeoman generator) ile TypeScript eklenti şablonu oluştur.
 ✅ *Bittiğinde göreceğin:* F5'e basınca yeni bir VS Code penceresi açılıyor, eklentin "yüklü" görünüyor.
 
