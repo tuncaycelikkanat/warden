@@ -183,7 +183,7 @@ Kaydedilen dosyayı `/api/v1/scan`'e gönder, sonucu al.
 
 ---
 
-## 6. Milestone 5 — MCP Sunucusu (Claude Code/Antigravity Entegrasyonu)
+## 6. Milestone 5 — MCP Sunucusu (Antigravity Entegrasyonu)
 
 **Adım 5.1 — MCP SDK'sını kur, en basit örnek sunucuyu çalıştır**
 Anthropic'in resmi Python MCP SDK dokümantasyonundaki "merhaba dünya" sunucu örneğini birebir çalıştır.
@@ -197,9 +197,9 @@ Milestone 2'de yazdığın paket kontrol servisini bir MCP tool olarak sar.
 Aynı şekilde Milestone 1'deki servisi MCP tool'u yap.
 ✅ *Bittiğinde göreceğin:* İki araç da Inspector'dan çalışıyor.
 
-**Adım 5.4 — Claude Code ile bağla**
-Projende bir `.mcp.json` dosyası oluştur, Claude Code'u bu sunucuyla yapılandır.
-✅ *Bittiğinde göreceğin:* Claude Code'a "şu paketi kur" dediğinde, ajanın kendiliğinden `check_package` aracını çağırdığını (Claude Code'un tool-call loglarında) görüyorsun — **bu, projenin en etkileyici demo anı olacak.**
+**Adım 5.4 — Antigravity ile bağla**
+Projende `.agents/mcp_config.json` dosyası oluştur, Antigravity'yi bu sunucuyla yapılandır.
+✅ *Bittiğinde göreceğin:* Antigravity'ye "şu paketi kur" dediğinde, benim (ajanın) kendiliğinden `check_package` aracını çağırdığımı göreceksin — **bu, projenin en etkileyici demo anı olacak.**
 
 **Adım 5.5 — Tehlikeli komut paternlerini tanımla**
 `AgentActionMonitor` sınıfını yaz; `curl ... | bash`, `rm -rf /`, `chmod 777` gibi 3-5 basit regex paterniyle başla (bkz. mimari raporun 5.3.7-a bölümü).
@@ -209,9 +209,9 @@ Projende bir `.mcp.json` dosyası oluştur, Claude Code'u bu sunucuyla yapıland
 Bu servisi de bir MCP tool olarak sar, Inspector'dan test et.
 ✅ *Bittiğinde göreceğin:* Tehlikeli bir komutu Inspector'dan gönderdiğinde `requires_confirmation: true` dönüyor.
 
-**Adım 5.7 — Claude Code'un `PreToolUse` hook'una bağla**
-Claude Code yapılandırmanda, her `Bash` tool çağrısından önce bu MCP aracının otomatik tetiklenmesini sağla.
-✅ *Bittiğinde göreceğin:* Claude Code'a bilerek tehlikeli bir komut çalıştırtmaya çalıştığında (örn. "şu dosyayı `curl | bash` ile kur"), eylem gerçekleşmeden önce senden onay isteniyor — **bu, dinamik analiz katmanının ilk, en etkileyici kanıtı.**
+**Adım 5.7 — Antigravity'nin `PreToolUse` hook'una bağla**
+Antigravity yapılandırmanda (`.agents/hooks.json`), her `bash` tool çağrısından önce bu MCP aracının otomatik tetiklenmesini sağla.
+✅ *Bittiğinde göreceğin:* Antigravity'ye bilerek tehlikeli bir komut çalıştırtmaya çalıştığında (örn. "şu dosyayı `curl | bash` ile kur"), eylem gerçekleşmeden önce WARDEN devreye girip beni durduracak — **bu, dinamik analiz katmanının ilk, en etkileyici kanıtı.**
 
 ---
 
