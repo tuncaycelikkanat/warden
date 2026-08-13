@@ -145,7 +145,7 @@ Betik içinde `git diff --cached --name-only` ile commit'e giren dosyaları list
 Her değişen `.py` dosyası için `curl` ile `/api/v1/scan` endpoint'ine istek at.
 ✅ *Bittiğinde göreceğin:* Bilerek güvenlik açığı olan bir dosyayı commit etmeye çalıştığında, terminalde uyarı çıkıyor.
 
-**Adım 3.4 — Kritik bulguda commit'i engelle**
+**[x] Adım 3.4 — Kritik bulguda commit'i engelle**
 Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 ✅ *Bittiğinde göreceğin:* Güvenlik açığı olan kodu commit edemiyorsun; düzelttiğinde commit geçiyor.
 

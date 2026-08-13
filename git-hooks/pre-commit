@@ -14,6 +14,8 @@ if [ -z "$FILES" ]; then
 fi
 
 echo "Değişen dosyalar taranıyor:"
+BLOCK_COMMIT=0
+
 for file in $FILES; do
     if [[ "$file" == *.py ]]; then
         echo " - Taranıyor: $file"
@@ -21,8 +23,14 @@ for file in $FILES; do
         
         if echo "$RESPONSE" | grep -q '"risk_level":"high"'; then
             echo "   ⚠️ UYARI: $file dosyasında YÜKSEK riskli güvenlik açığı bulundu!"
+            BLOCK_COMMIT=1
         elif echo "$RESPONSE" | grep -q '"risk_level":"medium"'; then
             echo "   ⚠️ UYARI: $file dosyasında ORTA riskli güvenlik açığı bulundu."
         fi
     fi
 done
+
+if [ "$BLOCK_COMMIT" -eq 1 ]; then
+    echo "❌ Güvenlik açıkları nedeniyle commit engellendi! Lütfen hataları düzeltin."
+    exit 1
+fi
