@@ -121,7 +121,7 @@ Verilen bir paket adı için PyPI'dan metadata çeken basit bir fonksiyon yaz.
 Yayın tarihi + indirme sayısı üzerinden basit bir puanlama fonksiyonu yaz (npm/PyPI indirme sayısı için ayrı bir API gerekebilir — PyPI için `pypistats.org` API'sini kullanabilirsin).
 ✅ *Bittiğinde göreceğin:* Yeni/az bilinen bir pakette yüksek risk puanı, `requests` gibi popüler bir pakette düşük risk puanı çıkıyor.
 
-**Adım 2.4 — İsim benzerliği (typosquatting) kontrolünü ekle**
+**[x] Adım 2.4 — İsim benzerliği (typosquatting) kontrolünü ekle**
 En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `python-Levenshtein` kütüphanesiyle isim benzerliği hesapla.
 ✅ *Bittiğinde göreceğin:* `reqeusts` (yazım hatalı) gibi bir isim verdiğinde, sistem "`requests`'e çok benziyor, dikkat et" diyor.
 

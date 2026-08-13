@@ -1,4 +1,4 @@
-# warden: Vibe Coding Ortamları için Bütünleşik Kod Kalitesi ve Güvenlik Güvence Sistemi
+# WARDEN: Vibe Coding Ortamları için Bütünleşik Kod Kalitesi ve Güvenlik Güvence Sistemi
 
 ## Gereksinim Analizi ve Mimari Tasarım Raporu
 
@@ -35,7 +35,7 @@
 
 ### 1.1 Amaç
 
-Bu belge, **warden** adı verilen sistemin gereksinim analizini ve mimari tasarımını detaylı biçimde ortaya koymaktadır. warden, "vibe coding" olarak adlandırılan, geliştiricilerin büyük dil modeli (LLM) tabanlı araçlarla (Cursor, GitHub Copilot, Claude Code, Google Antigravity vb.) doğal dil komutlarıyla kod ürettiği ve bu kodu detaylı biçimde incelemeden kabul etme eğiliminde olduğu geliştirme paradigmasının doğurduğu güvenlik, kalite ve mühendislik yetkinliği risklerini azaltmayı hedefleyen, editörden ve yapay zekâ sağlayıcısından bağımsız çalışabilen bir kod kalitesi güvence sistemidir.
+Bu belge, **WARDEN** adı verilen sistemin gereksinim analizini ve mimari tasarımını detaylı biçimde ortaya koymaktadır. WARDEN, "vibe coding" olarak adlandırılan, geliştiricilerin büyük dil modeli (LLM) tabanlı araçlarla (Cursor, GitHub Copilot, Claude Code, Google Antigravity vb.) doğal dil komutlarıyla kod ürettiği ve bu kodu detaylı biçimde incelemeden kabul etme eğiliminde olduğu geliştirme paradigmasının doğurduğu güvenlik, kalite ve mühendislik yetkinliği risklerini azaltmayı hedefleyen, editörden ve yapay zekâ sağlayıcısından bağımsız çalışabilen bir kod kalitesi güvence sistemidir.
 
 ### 1.2 Kapsam
 
@@ -91,13 +91,13 @@ Yapılan sektör araştırmaları ve bağımsız güvenlik testleri, bu paradigm
 
 ### 2.4 Projenin Konumlandırılması
 
-warden, yukarıdaki dört kök nedenin her birine karşılık gelen bir bileşen tasarlayarak, bunları **tek, editör-bağımsız bir çekirdek motor** etrafında birleştirmeyi hedefler. Bu sayede geliştirici hangi aracı kullanırsa kullansın (VS Code, IntelliJ, Claude Code, Antigravity, düz terminal), aynı güvence seviyesinden faydalanabilir.
+WARDEN, yukarıdaki dört kök nedenin her birine karşılık gelen bir bileşen tasarlayarak, bunları **tek, editör-bağımsız bir çekirdek motor** etrafında birleştirmeyi hedefler. Bu sayede geliştirici hangi aracı kullanırsa kullansın (VS Code, IntelliJ, Claude Code, Antigravity, düz terminal), aynı güvence seviyesinden faydalanabilir.
 
 ---
 
 ## 3. İlgili Çalışmaların ve Mevcut Çözümlerin Analizi
 
-| Araç/Çözüm | Kapsadığı Alan | warden'dan Farkı |
+| Araç/Çözüm | Kapsadığı Alan | WARDEN'dan Farkı |
 |---|---|---|
 | Semgrep, Bandit, ESLint-security | Statik güvenlik analizi (SAST) | Tekil dil/kural motoru; vibe coding'e özgü davranışsal paternleri (AI kabul oranı, çoklu-ajan görüş çatışması) hedeflemez |
 | CodeRabbit, Codacy | Otomatik PR/code review | Tekil-ajan mimarisi; farklı uzmanlık rollerinin (güvenlik/performans/mimari) paralel ve çelişen görüş üretip sentezlenmesi mimarisi yoktur |
@@ -105,7 +105,7 @@ warden, yukarıdaki dört kök nedenin her birine karşılık gelen bir bileşen
 | GitClear (analitik raporlama) | Kod çalkalanması/refactoring analitiği | Salt raporlama; gerçek zamanlı editör içi müdahale veya ajan-seviyeli engelleme sunmaz |
 | RescueTime ve benzeri üretkenlik araçları | Genel aktivite takibi | Kod-yazarlığı kaynağını (AI mi insan mı ürettiği) ayırt etmez |
 
-**Sonuç:** Piyasada bu beş kategorinin her biri için ayrı ayrı noktasal çözümler bulunmakla birlikte, bunları **tek bir editör-bağımsız çekirdek üzerinde, hem geleneksel IDE'ler hem de agent-first platformlarla (MCP üzerinden) konuşacak şekilde birleştiren** bütünleşik bir sistem tespit edilmemiştir. warden'ın özgün değeri buradadır.
+**Sonuç:** Piyasada bu beş kategorinin her biri için ayrı ayrı noktasal çözümler bulunmakla birlikte, bunları **tek bir editör-bağımsız çekirdek üzerinde, hem geleneksel IDE'ler hem de agent-first platformlarla (MCP üzerinden) konuşacak şekilde birleştiren** bütünleşik bir sistem tespit edilmemiştir. WARDEN'ın özgün değeri buradadır.
 
 ---
 
@@ -135,6 +135,9 @@ warden, yukarıdaki dört kök nedenin her birine karşılık gelen bir bileşen
 | FR-9 | Sistem, bir Git pre-commit/pre-push hook'u aracılığıyla; herhangi bir editör eklentisi kurulu olmasa dahi, commit anında temel güvenlik ve paket kontrolünü çalıştırabilmelidir. | Yüksek |
 | FR-10 | Sistem, kritik/yüksek riskli bulgularda geliştiriciden açık onay istemeli; düşük riskli bulguları ise yalnızca bilgilendirme amaçlı göstermelidir (yanlış pozitif yorgunluğunu önlemek için). | Orta |
 | FR-11 | Sistem, IntelliJ IDEA üzerinde VS Code eklentisiyle işlevsel olarak eşdeğer (tarama sonucu gösterimi, panel) bir eklenti sunmalıdır. | Düşük (Faz 3) |
+| FR-12 | Sistem, bir MCP istemcisinin (Claude Code/Antigravity) potansiyel olarak tehlikeli bir eylemi (terminal komutu çalıştırma, dosya silme, dış kaynaktan script çekme) gerçekleştirmeden **önce** bu eylemi yakalayıp risk değerlendirmesi yapmalı ve yüksek riskli eylemlerde kullanıcıdan açık onay istemelidir. | Yüksek (Faz 2) |
+| FR-13 | Sistem, bir fonksiyonun imzası ve bağlamından yola çıkarak anlamlı sınır-durum (edge-case) testleri üretebilmeli ve bu testleri izole bir ortamda (sandbox) çalıştırarak çökme, beklenmeyen çıktı veya tehlikeli sistem çağrısı gibi dinamik sinyalleri tespit edebilmelidir. | Orta (Faz 3) |
+| FR-14 | Sistem, bir kod değişikliğinden önceki ve sonraki versiyonları aynı test girdileriyle çalıştırıp çıktılarını karşılaştırarak, "yalnızca refactor" olarak sunulan ama gerçekte davranışı değiştiren değişiklikleri tespit edebilmelidir (davranışsal diff). | Düşük (Faz 3) |
 
 ### 4.3 Fonksiyonel Olmayan Gereksinimler
 
@@ -153,11 +156,11 @@ warden, yukarıdaki dört kök nedenin her birine karşılık gelen bir bileşen
 **UC-1: Güvenlik açığı olan kodun anlık yakalanması**
 - **Aktör:** Bireysel geliştirici
 - **Ön koşul:** VS Code eklentisi kurulu ve Core Engine çalışıyor
-- **Akış:** Geliştirici, Claude Code veya Copilot ile bir API endpoint'i ürettirir → dosya kaydedilir → warden eklentisi diff'i Core Engine'e gönderir → Security Scanner modülü SQL sorgusunun parametreli olmadığını tespit eder → Problems panelinde "Yüksek Risk: SQL Injection potansiyeli" uyarısı gösterilir → geliştirici düzeltmeden önce commit edemez (isteğe bağlı sıkı mod) veya bilgilendirilerek devam eder.
+- **Akış:** Geliştirici, Claude Code veya Copilot ile bir API endpoint'i ürettirir → dosya kaydedilir → WARDEN eklentisi diff'i Core Engine'e gönderir → Security Scanner modülü SQL sorgusunun parametreli olmadığını tespit eder → Problems panelinde "Yüksek Risk: SQL Injection potansiyeli" uyarısı gösterilir → geliştirici düzeltmeden önce commit edemez (isteğe bağlı sıkı mod) veya bilgilendirilerek devam eder.
 
 **UC-2: Hayali paket kurulumunun engellenmesi**
 - **Aktör:** Bireysel geliştirici
-- **Akış:** AI ajanı `pip install fastapi-auth-utils-pro` önerir → geliştirici terminalde komutu çalıştırmadan önce (Git hook veya terminal wrapper aracılığıyla) warden paketi PyPI'da sorgular → paketin bir hafta önce yayınlandığını ve sıfır indirmesi olduğunu tespit eder → kurulum öncesi uyarı gösterir.
+- **Akış:** AI ajanı `pip install fastapi-auth-utils-pro` önerir → geliştirici terminalde komutu çalıştırmadan önce (Git hook veya terminal wrapper aracılığıyla) WARDEN paketi PyPI'da sorgular → paketin bir hafta önce yayınlandığını ve sıfır indirmesi olduğunu tespit eder → kurulum öncesi uyarı gösterir.
 
 **UC-3: Claude Code ajanının kendi kendine güvenlik kontrolü çağırması**
 - **Aktör:** Claude Code ajanı (MCP istemcisi)
@@ -370,9 +373,53 @@ Bu servis, bir arka plan zamanlayıcısı (`APScheduler`) ile haftalık olarak �
 - VS Code eklentisi, bir kod bloğunun AI tarafından mı (ör. Copilot/Claude Code'un dosyaya yazdığı bir değişiklik) yoksa kullanıcı tarafından mı (manuel klavye girdisi) oluşturulduğunu, editör olaylarından (`onDidChangeTextDocument` olayının kaynağı) ayırt ederek etiketler.
 - Bu veri tamamen yerel tutulur, hiçbir sunucuya gönderilmez (bkz. Bölüm 12 Gizlilik Tasarımı).
 
+#### 5.3.7 DynamicAnalysisService (Dinamik Analiz Katmanı)
+
+**Motivasyon:** Bölüm 5.3.1-5.3.6'daki tüm servisler **statik** analiz yapar — kodu okur, yorumlar, ama çalıştırmaz. Statik analizin doğası gereği asla yakalayamayacağı bir hata sınıfı vardır: kodun *göründüğü gibi değil, gerçekte davrandığı gibi* çalışması. Bu servis, WARDEN'a gerçek çalışma zamanı (runtime) sinyalleri kazandırarak bu boşluğu kapatır. Dört alt modülden oluşur; bunlardan yalnızca ilki (Agent Eylem İzleyici) MVP/Faz 2 kapsamındadır, diğer üçü Faz 3 stretch-goal olarak tasarlanmıştır (bkz. Bölüm 14).
+
+```
+                    ┌──────────────────────┐
+        Diff/Eylem ─►│ DynamicAnalysisService│
+                    └──────────┬───────────┘
+                               │
+        ┌──────────────┬──────┴───────┬──────────────────┐
+        ▼              ▼              ▼                  ▼
+   Agent Eylem      AI Test        Sandbox            Davranışsal
+   İzleyici         Üretici        Yürütücü           Diff Motoru
+   (Faz 2)          (Faz 3)        (Faz 3)            (Faz 3)
+```
+
+**a) AgentActionMonitor (Faz 2 — Agent Eylem İzleyici):**
+Claude Code/Antigravity gibi MCP istemcilerinin `PreToolUse` hook mekanizmasına bağlanır. Bir ajan, terminal komutu çalıştırma, dosya silme veya dış kaynaktan script indirme (`curl ... | bash` gibi) türünden bir eylem gerçekleştirmek istediğinde, bu istek **eylem gerçekleşmeden önce** WARDEN'a iletilir; önceden tanımlı tehlikeli komut paternlerine göre değerlendirilir ve yüksek riskli eylemlerde kullanıcıdan onay istenir. Bu modül, ek bir sandbox altyapısı gerektirmediği için düşük ek maliyetle Faz 2'ye dahil edilebilir; mimari olarak AI Caddy projesindeki perception→FSM→action-executor desenine (ajanın niyetinin gerçekleşmeden önce değerlendirilmesi) karşılık gelir.
+
+```python
+class AgentActionMonitor:
+    DANGEROUS_PATTERNS = [
+        r"curl.*\|\s*(bash|sh)",
+        r"rm\s+-rf\s+/",
+        r"chmod\s+777",
+    ]
+
+    async def evaluate_pre_tool_use(self, tool_name: str, tool_input: dict) -> ActionVerdict:
+        command = tool_input.get("command", "")
+        if any(re.search(p, command) for p in self.DANGEROUS_PATTERNS):
+            return ActionVerdict(allow=False, requires_confirmation=True,
+                                  reason="Potansiyel olarak tehlikeli komut paterni tespit edildi.")
+        return ActionVerdict(allow=True, requires_confirmation=False)
+```
+
+**b) AITestGenerator (Faz 3):**
+LLM Provider Router aracılığıyla, değişen bir fonksiyonun imzası ve docstring'inden yola çıkarak *anlam bilen* sınır-durum testleri üretir (rastgele fuzzing yerine "negatif sayı", "boş liste", "Unicode girdi" gibi hedefli senaryolar). Akademik literatürde "AI-guided fuzzing" olarak bilinen yaklaşımın küçük ölçekli bir uygulamasıdır.
+
+**c) SandboxExecutor (Faz 3):**
+Üretilen testleri izole bir Docker konteynerinde çalıştırır; çökme/exception, beklenmeyen `stdout`/`stderr` çıktısı, aşırı kaynak kullanımı ve tehlikeli sistem çağrılarını (`os.system`, `eval`, ağ erişimi) Python'un `sys.settrace`/audit hook mekanizmasıyla yakalar. **Kritik tasarım kısıtı:** İzolasyon başarısız olursa "güvenlik aracı" kendisi bir güvenlik açığına dönüşür; bu nedenle bu modülün network erişimi olmayan, salt-okunur dosya sistemi bağlı, kaynak limitli (`--memory`, `--cpus`, `--network=none`) bir konteyner yapılandırmasıyla çalışması zorunludur.
+
+**d) BehavioralDiffEngine (Faz 3):**
+Bir değişiklikten önceki ve sonraki kod versiyonlarını, AITestGenerator'ın ürettiği aynı test girdileriyle paralel çalıştırıp çıktılarını karşılaştırır. Çıktı farklıysa (AI "sadece kod temizledim" derken mantığı bozmuşsa), bu statik metin diff'inin göremeyeceği bir davranış değişikliği olarak işaretlenir — WARDEN'ın en özgün, farklılaştırıcı katkılarından biridir.
+
 ### 5.4 Bileşenler Arası Bağımlılık Kuralı
 
-Uygulama katmanındaki beş servis birbirinden bağımsızdır ve doğrudan birbirini çağırmaz; tüm orkestrasyon Port Katmanı'ndaki API Gateway üzerinden yapılır. Bu, her servisin izole biçimde birim test edilebilmesini sağlar ve NFR-3 (genişletilebilirlik) gereksinimini karşılar.
+Uygulama katmanındaki altı servis (beş statik + DynamicAnalysisService) birbirinden bağımsızdır ve doğrudan birbirini çağırmaz; tüm orkestrasyon Port Katmanı'ndaki API Gateway üzerinden yapılır. Bu, her servisin izole biçimde birim test edilebilmesini sağlar ve NFR-3 (genişletilebilirlik) gereksinimini karşılar.
 
 ---
 
@@ -486,7 +533,7 @@ Port Katmanı, aşağıdaki REST uç noktalarını sunar (FastAPI ile otomatik O
 
 ## 8. MCP Sunucu Tasarımı
 
-Claude Code ve Google Antigravity gibi agent-first platformlarla entegrasyon, warden'ın bir **MCP (Model Context Protocol) sunucusu** olarak dışa açılmasıyla sağlanır. Bu, editör eklentisinden farklı olarak, **ajanın kendisinin** warden araçlarını görev akışı içinde doğrudan çağırabilmesini sağlar.
+Claude Code ve Google Antigravity gibi agent-first platformlarla entegrasyon, WARDEN'ın bir **MCP (Model Context Protocol) sunucusu** olarak dışa açılmasıyla sağlanır. Bu, editör eklentisinden farklı olarak, **ajanın kendisinin** WARDEN araçlarını görev akışı içinde doğrudan çağırabilmesini sağlar.
 
 ### 8.1 Sunulan Araçlar (Tool Tanımları)
 
@@ -529,6 +576,18 @@ Claude Code ve Google Antigravity gibi agent-first platformlarla entegrasyon, wa
         },
         "required": ["diff_content"]
       }
+    },
+    {
+      "name": "evaluate_agent_action",
+      "description": "Bir ajanın gerçekleştirmek üzere olduğu bir eylemi (terminal komutu, dosya işlemi) gerçekleşmeden önce risk açısından değerlendirir; PreToolUse hook'u ile birlikte kullanılır.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "tool_name": {"type": "string"},
+          "tool_input": {"type": "object", "description": "Çalıştırılmak istenen komut/eylemin ham girdisi"}
+        },
+        "required": ["tool_name", "tool_input"]
+      }
     }
   ]
 }
@@ -536,7 +595,7 @@ Claude Code ve Google Antigravity gibi agent-first platformlarla entegrasyon, wa
 
 ### 8.2 Entegrasyon Akışı
 
-Claude Code veya Antigravity, bir görev planı içinde (örn. bir "commit öncesi güvenlik kontrolü yap" adımında) bu araçları otomatik olarak çağırabilir. Bu, warden'ı bir "pasif eklenti"den bir "ajanın araç setinin parçası"na dönüştürür — ajan, kendi ürettiği kodu kendisi denetleyebilir hale gelir.
+Claude Code veya Antigravity, bir görev planı içinde (örn. bir "commit öncesi güvenlik kontrolü yap" adımında) bu araçları otomatik olarak çağırabilir. Bu, WARDEN'ı bir "pasif eklenti"den bir "ajanın araç setinin parçası"na dönüştürür — ajan, kendi ürettiği kodu kendisi denetleyebilir hale gelir.
 
 **Yapılandırma örneği (`.mcp.json`, Claude Code için):**
 
@@ -607,7 +666,7 @@ Geliştirici        VS Code Eklentisi       Core Engine API        SecurityScann
 ### 10.2 Senaryo: Claude Code Ajanının MCP Aracını Çağırması
 
 ```
-Claude Code Ajanı     MCP Sunucusu (warden)     PackageIntegrityChecker    PyPI Registry
+Claude Code Ajanı     MCP Sunucusu (WARDEN)     PackageIntegrityChecker    PyPI Registry
        │                        │                            │                    │
        │ (görev: "requests-     │                            │                    │
        │  turbo-fast" paketini  │                            │                    │
@@ -664,7 +723,7 @@ Git Hook (pre-commit) → Core Engine → SecurityScanner (ön filtre: risk=HIGH
 
 ## 12. Güvenlik ve Gizlilik Tasarımı
 
-warden, ironik biçimde kendisi de bir güvenlik aracı olduğundan, kendi güvenlik/gizlilik tasarımı özellikle titiz olmalıdır:
+WARDEN, ironik biçimde kendisi de bir güvenlik aracı olduğundan, kendi güvenlik/gizlilik tasarımı özellikle titiz olmalıdır:
 
 1. **Varsayılan olarak yerel işleme:** Statik analiz (Semgrep) ve paket kontrolü (registry sorgusu) tamamen yerel makinede çalışır; kod içeriği hiçbir sunucuya gönderilmez.
 2. **LLM çağrılarında açık rıza:** DiffExplainer ve ReviewBoard modülleri, kod parçacıklarını harici bir LLM API'sine gönderdiğinden, bu özellik varsayılan olarak **kapalı** gelir ve kullanıcı ilk kullanımda açıkça onay vermelidir. Tamamen yerel çalışmak isteyen kullanıcılar için Ollama tabanlı yerel model seçeneği sunulur.
@@ -685,6 +744,8 @@ warden, ironik biçimde kendisi de bir güvenlik aracı olduğundan, kendi güve
 | Editör eklentisi testleri | VS Code eklentisinin komut/olay tetiklemelerinin doğruluğu | VS Code Extension Test Runner |
 | MCP entegrasyon testi | Claude Code'un MCP araçlarını doğru şema ile çağırıp çağırmadığının doğrulanması | Manuel senaryo testi + MCP Inspector aracı |
 | Performans testi | Kaydetme anındaki tarama gecikmesinin NFR-2 (2 saniye altı) sınırını karşıladığının ölçümü | Yerel benchmark script'i |
+| AgentActionMonitor testi | Bilinen tehlikeli komut paternleri (`curl \| bash`, `rm -rf /` vb.) içeren senaryo setinde doğru/yanlış pozitif oranı | Özel senaryo test seti |
+| Sandbox izolasyon testi (Faz 3) | SandboxExecutor'ın ağ erişimsiz/salt-okunur kısıtlarının gerçekten uygulandığının doğrulanması | Kasıtlı "kaçış denemesi" içeren test konteynerleri |
 
 **Hedef Test Kapsamı:** Core Engine iş mantığı katmanı için en az %80 birim test kapsamı hedeflenmektedir (Crypto MAS projesindeki 210 birim testlik disiplinle tutarlı bir yaklaşım).
 
@@ -696,8 +757,8 @@ warden, ironik biçimde kendisi de bir güvenlik aracı olduğundan, kendi güve
 |---|---|---|---|
 | **Faz 0 — Hazırlık** | Literatür/rakip analizi, gereksinim analizi (bu belge), Semgrep kural seti tasarımı | 2 hafta | Bu rapor + kural şablonları |
 | **Faz 1 — MVP (Bitirme kapsamının çekirdeği)** | Core Engine (SecurityScanner + PackageIntegrityChecker), SQLite şeması, REST API, Git pre-commit hook entegrasyonu | 5 hafta | Editörsüz de çalışan, commit anında güvenlik/paket kontrolü yapan çalışan sistem |
-| **Faz 2 — Editör ve Ajan Entegrasyonu** | VS Code eklentisi (Problems panel + webview), MCP sunucusu (security_scan, check_package araçları), Claude Code ile uçtan uca test | 4 hafta | VS Code + Antigravity'de çalışan eklenti; Claude Code'un araçları çağırabildiği demo |
-| **Faz 3 — Genişletilmiş Modüller (sunumda "vizyon" olarak gösterilecek)** | DiffExplainer, ReviewBoardOrchestrator, TechDebtTracker, PersonalMetricsService, IntelliJ eklentisi | Bitirme dönemi sonrası / stretch goal | Kısmi prototip veya mimari kanıt (proof of concept) |
+| **Faz 2 — Editör ve Ajan Entegrasyonu** | VS Code eklentisi (Problems panel + webview), MCP sunucusu (security_scan, check_package, evaluate_agent_action araçları), AgentActionMonitor (dinamik analiz katmanının ilk parçası — PreToolUse hook ile eylem öncesi risk değerlendirmesi), Claude Code ile uçtan uca test | 5 hafta | VS Code + Antigravity'de çalışan eklenti; Claude Code'un araçları çağırabildiği ve tehlikeli bir eylemi eylem gerçekleşmeden önce yakaladığı demo |
+| **Faz 3 — Genişletilmiş Modüller (sunumda "vizyon" olarak gösterilecek)** | DiffExplainer, ReviewBoardOrchestrator, TechDebtTracker, PersonalMetricsService, IntelliJ eklentisi, AITestGenerator + SandboxExecutor + BehavioralDiffEngine (dinamik analiz katmanının geri kalanı) | Bitirme dönemi sonrası / stretch goal | Kısmi prototip veya mimari kanıt (proof of concept) |
 | **Faz 4 — Değerlendirme ve Yazım** | Pilot kullanım (kendi Crypto MAS/Omni-Agent/AI Caddy projeleri üzerinde), sonuçların ölçülmesi, tez/rapor yazımı | 2 hafta | Nicel sonuçlarla desteklenmiş bitirme raporu |
 
 **Toplam MVP + Entegrasyon Süresi:** Yaklaşık 11 hafta — standart bir akademik dönem takvimine (13-14 hafta) makul bir tampon bırakarak sığmaktadır.
@@ -713,6 +774,8 @@ warden, ironik biçimde kendisi de bir güvenlik aracı olduğundan, kendi güve
 | LLM API maliyetlerinin (DiffExplainer, ReviewBoard) bütçe/rate-limit sınırlarını aşması | Düşük-Orta | Orta | Ön risk filtresi ile yalnızca yüksek riskli değişikliklerde LLM çağrısı yapılması (Bölüm 5.3.3); yerel model (Ollama) yedek seçeneği |
 | Kapsamın (5 modül + 4 platform) bir dönemde tamamlanamaması | Yüksek | Yüksek | Faz 1-2'nin net MVP olarak tanımlanması, Faz 3'ün "vizyon/gelecek çalışma" olarak sunulması (Bölüm 14) |
 | Gerçek/temsili "kirli" test veri setinin (bilinçli güvenlik açığı içeren kod örnekleri) yetersiz kalması | Düşük | Orta | OWASP WebGoat, Juice Shop gibi açık kaynak zafiyetli uygulama örneklerinden test seti türetilmesi |
+| SandboxExecutor'daki izolasyonun yetersiz kalması ve "güvenlik aracının" kendisinin bir güvenlik açığına dönüşmesi | Düşük | Çok Yüksek | Faz 3 kapsamında; ağ erişimi olmayan, salt-okunur dosya sistemi bağlı, kaynak limitli konteyner yapılandırması zorunlu tutulur (Bölüm 5.3.7-c); bu modül MVP'ye dahil edilmeyerek riskin zaman baskısı altında alelacele ele alınması engellenir |
+| AgentActionMonitor'ün tehlikeli komut paternlerini eksik tanıyıp (false negative) gerçek bir zararlı eylemi kaçırması | Orta | Yüksek | Faz 2'de yalnızca yüksek güvenilirlikli, dar kapsamlı bir patern listesiyle başlanması; bu modülün "ek güvenlik katmanı" olarak sunulup tek başına yeterli koruma olarak konumlandırılmaması |
 
 ---
 
@@ -724,7 +787,7 @@ Projenin başarısı, aşağıdaki ölçülebilir kriterlerle değerlendirilecek
 2. **Slopsquatting tespiti doğruluğu:** Bilinen gerçek paketler ile kasıtlı olarak üretilmiş "sahte/hayali" paket adları içeren bir test setinde doğruluk oranı ölçülecektir.
 3. **Gecikme:** NFR-2'de tanımlanan 2 saniyelik hedefin gerçek kullanım koşullarında (kendi Crypto MAS/Omni-Agent repo'ları üzerinde) karşılanıp karşılanmadığı ölçülecektir.
 4. **Gerçek dünya pilot kullanımı:** Sistem, geliştiricinin kendi devam eden projelerinde (Crypto MAS, Omni-Agent, AI Caddy) en az 2 hafta boyunca fiilen kullanılacak; bu süre zarfında yakalanan gerçek bulgular (varsa) nicel olarak raporlanacaktır — bu, akademik "laboratuvar demosu" eleştirisine karşı en güçlü kanıt olacaktır.
-5. **MCP entegrasyon kanıtı:** Claude Code'un, bir görev akışı sırasında warden MCP araçlarını en az bir kez kendiliğinden (insan müdahalesi olmadan) çağırdığı bir demo senaryosunun kayıt altına alınması.
+5. **MCP entegrasyon kanıtı:** Claude Code'un, bir görev akışı sırasında WARDEN MCP araçlarını en az bir kez kendiliğinden (insan müdahalesi olmadan) çağırdığı bir demo senaryosunun kayıt altına alınması.
 
 ### 16.1 Genel Değerlendirme Skor Kartı
 
@@ -748,7 +811,7 @@ Yukarıdaki metrikleri tek tek izlemenin yanında, tasarımın bütününü kate
 
 ## 17. Sonuç ve Öneriler
 
-Bu rapor, vibe coding paradigmasının güncel ve ölçülmüş risklerine (güvenlik açıkları, tedarik zinciri saldırıları, teknik borç birikimi, yetkinlik erozyonu) karşı, editörden ve yapay zekâ sağlayıcısından bağımsız, genişletilebilir bir mimariyle yanıt veren warden sistemini tanımlamıştır.
+Bu rapor, vibe coding paradigmasının güncel ve ölçülmüş risklerine (güvenlik açıkları, tedarik zinciri saldırıları, teknik borç birikimi, yetkinlik erozyonu) karşı, editörden ve yapay zekâ sağlayıcısından bağımsız, genişletilebilir bir mimariyle yanıt veren WARDEN sistemini tanımlamıştır.
 
 Mimarinin temel gücü, iş mantığını (Core Engine) sunum katmanından (editör eklentileri) tamamen ayırması ve dış dünyayla yalnızca standart portlar (REST, MCP, Git hook) üzerinden konuşmasıdır. Bu tasarım kararı sayesinde:
 

@@ -33,3 +33,13 @@ async def test_calculate_risk_score_nonexistent_package():
     
     assert result["risk_level"] == "high"
     assert "Package not found" in result["details"][0]
+
+@pytest.mark.asyncio
+async def test_calculate_risk_score_typosquatting():
+    service = PackageCheckerService()
+    # reqeusts is a typo for requests
+    result = await service.calculate_risk_score("reqeusts")
+    
+    assert result["risk_level"] == "high"
+    assert any("Typosquatting alert" in d for d in result["details"])
+    assert any("requests" in d for d in result["details"])

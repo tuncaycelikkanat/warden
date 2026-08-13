@@ -1,5 +1,8 @@
 import httpx
 import logging
+import json
+import os
+import Levenshtein
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -43,14 +46,43 @@ class PackageCheckerService:
                 logger.warning(f"Failed to fetch pypistats for {package_name}: {e}")
                 return 0
 
+    def check_typosquatting(self, package_name: str) -> Optional[str]:
+        """
+        Checks if the package name is suspiciously similar to a top 1000 PyPI package.
+        Returns the name of the popular package it's mimicking, or None.
+        """
+        data_file = "core/data/top_pypi_packages.json"
+        if not os.path.exists(data_file):
+            return None
+            
+        with open(data_file, "r") as f:
+            top_packages = json.load(f)
+            
+        if package_name in top_packages:
+            return None
+            
+        for popular_pkg in top_packages:
+            distance = Levenshtein.distance(package_name.lower(), popular_pkg.lower())
+            threshold = 1 if len(popular_pkg) <= 4 else 2
+            
+            if distance <= threshold and distance > 0:
+                return popular_pkg
+                
+        return None
+
     async def calculate_risk_score(self, package_name: str) -> Dict[str, Any]:
         """
         Calculates a risk score for a package based on PyPI metadata and stats.
         Returns a dict with 'risk_level' (low, medium, high) and 'details'.
         """
+        typo_mimic = self.check_typosquatting(package_name)
+        
         metadata = await self.get_pypi_metadata(package_name)
         if not metadata:
-            return {"risk_level": "high", "details": ["Package not found on PyPI"]}
+            details = ["Package not found on PyPI"]
+            if typo_mimic:
+                details.append(f"Typosquatting alert: suspiciously similar to popular package '{typo_mimic}'")
+            return {"risk_level": "high", "details": details}
             
         stats = await self.get_pypi_stats(package_name)
         
@@ -62,8 +94,12 @@ class PackageCheckerService:
         risk_level = "low"
         reasons = []
         
+        if typo_mimic:
+            risk_level = "high"
+            reasons.append(f"Typosquatting alert: suspiciously similar to popular package '{typo_mimic}'")
+            
         if total_releases < 3:
-            risk_level = "medium"
+            risk_level = "medium" if risk_level != "high" else "high"
             reasons.append(f"Very few releases ({total_releases})")
             
         if 0 < stats < 1000:
