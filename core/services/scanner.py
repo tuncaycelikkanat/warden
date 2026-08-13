@@ -42,3 +42,19 @@ class SecurityScannerService:
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse semgrep output: {e}")
             return []
+
+    def calculate_risk_level(self, findings: List[Dict[str, Any]]) -> str:
+        """
+        Calculates risk level (high, medium, low) based on Semgrep findings.
+        """
+        if not findings:
+            return "low"
+            
+        severity_levels = [f.get("extra", {}).get("severity", "INFO") for f in findings]
+        
+        if "ERROR" in severity_levels:
+            return "high"
+        elif "WARNING" in severity_levels:
+            return "medium"
+            
+        return "low"

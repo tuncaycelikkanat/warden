@@ -97,11 +97,11 @@ Semgrep'i Python'dan `subprocess` ile çağıran, JSON çıktısını parse eden
 `POST /api/v1/scan` endpoint'ini yaz; gelen dosya yolunu SecurityScannerService'e ver, sonucu JSON olarak dön.
 ✅ *Bittiğinde göreceğin:* `curl` ile bir dosya yolu gönderdiğinde gerçek tarama sonucu JSON olarak dönüyor.
 
-**Adım 1.6 — Sonucu veritabanına kaydet**
+**[x] Adım 1.6 — Sonucu veritabanına kaydet**
 Her tarama sonucunu `scan_results` tablosuna yaz.
 ✅ *Bittiğinde göreceğin:* Birkaç tarama yaptıktan sonra DB Browser'da geçmiş taramaları görebiliyorsun.
 
-**Adım 1.7 — Risk seviyesi hesaplama mantığını ekle**
+**[x] Adım 1.7 — Risk seviyesi hesaplama mantığını ekle**
 Bulunan kuralların önem derecesine göre `low/medium/high` risk seviyesi hesapla.
 ✅ *Bittiğinde göreceğin:* Kritik bir açık içeren dosya "high", temiz bir dosya "low" dönüyor.
 
