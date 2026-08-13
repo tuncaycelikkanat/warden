@@ -141,7 +141,7 @@ En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `pyt
 Betik içinde `git diff --cached --name-only` ile commit'e giren dosyaları listele.
 ✅ *Bittiğinde göreceğin:* Betik, commit ettiğin dosyaların isimlerini terminalde listeliyor.
 
-**Adım 3.3 — Core Engine'e istek at**
+**[x] Adım 3.3 — Core Engine'e istek at**
 Her değişen `.py` dosyası için `curl` ile `/api/v1/scan` endpoint'ine istek at.
 ✅ *Bittiğinde göreceğin:* Bilerek güvenlik açığı olan bir dosyayı commit etmeye çalıştığında, terminalde uyarı çıkıyor.
 

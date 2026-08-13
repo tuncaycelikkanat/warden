@@ -1,12 +1,28 @@
 #!/bin/bash
 echo "WARDEN çalışıyor..."
 
+# Sunucu ayakta mı kontrol edelim
+HEALTH=$(curl -s http://localhost:8000/api/v1/health)
+if [ -z "$HEALTH" ]; then
+    echo "WARDEN API (localhost:8000) cevap vermiyor. Tarama atlanıyor..."
+    exit 0
+fi
+
 FILES=$(git diff --cached --name-only)
 if [ -z "$FILES" ]; then
     exit 0
 fi
 
-echo "Değişen dosyalar:"
+echo "Değişen dosyalar taranıyor:"
 for file in $FILES; do
-    echo " - $file"
+    if [[ "$file" == *.py ]]; then
+        echo " - Taranıyor: $file"
+        RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d "{\"file_path\": \"$file\"}" http://localhost:8000/api/v1/scan)
+        
+        if echo "$RESPONSE" | grep -q '"risk_level":"high"'; then
+            echo "   ⚠️ UYARI: $file dosyasında YÜKSEK riskli güvenlik açığı bulundu!"
+        elif echo "$RESPONSE" | grep -q '"risk_level":"medium"'; then
+            echo "   ⚠️ UYARI: $file dosyasında ORTA riskli güvenlik açığı bulundu."
+        fi
+    fi
 done
