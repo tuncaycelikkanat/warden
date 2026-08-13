@@ -177,7 +177,7 @@ Eklenti içinden `fetch` ile `/api/v1/health` endpoint'ine istek at, sonucu bild
 Kaydedilen dosyayı `/api/v1/scan`'e gönder, sonucu al.
 ✅ *Bittiğinde göreceğin:* Dosya kaydettiğinde arka planda gerçek bir tarama çalışıyor (henüz görsel çıktı yok, konsolda görüyorsun).
 
-**Adım 4.6 — Diagnostic (Problems paneli) entegrasyonu**
+**[x] Adım 4.6 — Diagnostic (Problems paneli) entegrasyonu**
 `vscode.languages.createDiagnosticCollection` kullanarak bulguları Problems paneline yaz.
 ✅ *Bittiğinde göreceğin:* Güvenlik açığı olan bir satırın altında **kırmızı dalgalı çizgi** görüyorsun, Problems panelinde açıklama okuyabiliyorsun — bu, projenin en tatmin edici anlarından biri olacak.
 
