@@ -149,7 +149,7 @@ Her değişen `.py` dosyası için `curl` ile `/api/v1/scan` endpoint'ine istek 
 Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 ✅ *Bittiğinde göreceğin:* Güvenlik açığı olan kodu commit edemiyorsun; düzelttiğinde commit geçiyor.
 
-**Adım 3.5 — Kurulum betiği yaz**
+**[x] Adım 3.5 — Kurulum betiği yaz**
 `.git/hooks/pre-commit` içine bu betiği otomatik kopyalayan bir `install.sh` yaz.
 ✅ *Bittiğinde göreceğin:* Tek bir komutla (`./install.sh`) hook kuruluyor — **artık MVP'nin en kritik parçası eninde sonunda çalışıyor.** 🎉
 
