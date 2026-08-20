@@ -6,6 +6,7 @@ from mcp.types import Tool, TextContent
 
 from core.services.scanner import SecurityScannerService
 from core.services.package import PackageCheckerService
+from core.services.monitor import AgentActionMonitor
 
 app = Server("warden_mcp")
 
@@ -38,6 +39,20 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["package_name"]
+            }
+        ),
+        Tool(
+            name="evaluate_agent_action",
+            description="Evaluates a shell command for dangerous patterns before execution.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The shell command to evaluate"
+                    }
+                },
+                "required": ["command"]
             }
         )
     ]
@@ -83,6 +98,20 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=result_str)]
         except Exception as e:
             return [TextContent(type="text", text=f"Error checking package: {str(e)}")]
+            
+    elif name == "evaluate_agent_action":
+        command = arguments.get("command")
+        if not command:
+            return [TextContent(type="text", text="Error: command is required")]
+            
+        try:
+            monitor = AgentActionMonitor()
+            result = monitor.evaluate_action(command)
+            
+            import json
+            return [TextContent(type="text", text=json.dumps(result))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error evaluating action: {str(e)}")]
             
     else:
         raise ValueError(f"Unknown tool: {name}")

@@ -1,10 +1,8 @@
 {
   "mcpServers": {
     "warden_mcp": {
-      "command": "uv",
+      "command": ".venv/bin/python",
       "args": [
-        "run",
-        "python",
         "-m",
         "mcp_server.server"
       ]

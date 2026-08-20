@@ -185,31 +185,31 @@ Kaydedilen dosyayı `/api/v1/scan`'e gönder, sonucu al.
 
 ## 6. Milestone 5 — MCP Sunucusu (Antigravity Entegrasyonu)
 
-**Adım 5.1 — MCP SDK'sını kur, en basit örnek sunucuyu çalıştır**
+**[x] Adım 5.1 — MCP SDK'sını kur, en basit örnek sunucuyu çalıştır**
 Anthropic'in resmi Python MCP SDK dokümantasyonundaki "merhaba dünya" sunucu örneğini birebir çalıştır.
 ✅ *Bittiğinde göreceğin:* MCP Inspector aracıyla bu sunucuya bağlanıp örnek aracı çağırabiliyorsun.
 
-**Adım 5.2 — `check_package` aracını MCP'ye ekle**
+**[x] Adım 5.2 — `check_package` aracını MCP'ye ekle**
 Milestone 2'de yazdığın paket kontrol servisini bir MCP tool olarak sar.
 ✅ *Bittiğinde göreceğin:* MCP Inspector'dan bu aracı çağırdığında gerçek paket kontrolü sonucu dönüyor.
 
-**Adım 5.3 — `security_scan` aracını ekle**
+**[x] Adım 5.3 — `security_scan` aracını ekle**
 Aynı şekilde Milestone 1'deki servisi MCP tool'u yap.
 ✅ *Bittiğinde göreceğin:* İki araç da Inspector'dan çalışıyor.
 
-**Adım 5.4 — Antigravity ile bağla**
+**[x] Adım 5.4 — Antigravity ile bağla**
 Projende `.agents/mcp_config.json` dosyası oluştur, Antigravity'yi bu sunucuyla yapılandır.
 ✅ *Bittiğinde göreceğin:* Antigravity'ye "şu paketi kur" dediğinde, benim (ajanın) kendiliğinden `check_package` aracını çağırdığımı göreceksin — **bu, projenin en etkileyici demo anı olacak.**
 
-**Adım 5.5 — Tehlikeli komut paternlerini tanımla**
+**[x] Adım 5.5 — Tehlikeli komut paternlerini tanımla**
 `AgentActionMonitor` sınıfını yaz; `curl ... | bash`, `rm -rf /`, `chmod 777` gibi 3-5 basit regex paterniyle başla (bkz. mimari raporun 5.3.7-a bölümü).
 ✅ *Bittiğinde göreceğin:* Bu sınıfı doğrudan çağıran bir pytest testinde, tehlikeli komutlar "reddedildi", zararsız komutlar "izin verildi" dönüyor.
 
-**Adım 5.6 — `evaluate_agent_action` aracını MCP'ye ekle**
+**[x] Adım 5.6 — `evaluate_agent_action` aracını MCP'ye ekle**
 Bu servisi de bir MCP tool olarak sar, Inspector'dan test et.
 ✅ *Bittiğinde göreceğin:* Tehlikeli bir komutu Inspector'dan gönderdiğinde `requires_confirmation: true` dönüyor.
 
-**Adım 5.7 — Antigravity'nin `PreToolUse` hook'una bağla**
+**[x] Adım 5.7 — Antigravity'nin `PreToolUse` hook'una bağla**
 Antigravity yapılandırmanda (`.agents/hooks.json`), her `bash` tool çağrısından önce bu MCP aracının otomatik tetiklenmesini sağla.
 ✅ *Bittiğinde göreceğin:* Antigravity'ye bilerek tehlikeli bir komut çalıştırtmaya çalıştığında (örn. "şu dosyayı `curl | bash` ile kur"), eylem gerçekleşmeden önce WARDEN devreye girip beni durduracak — **bu, dinamik analiz katmanının ilk, en etkileyici kanıtı.**
 

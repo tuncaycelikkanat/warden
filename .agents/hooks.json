@@ -1,0 +1,16 @@
+{
+  "warden-security-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/bin/python scripts/hook_monitor.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
