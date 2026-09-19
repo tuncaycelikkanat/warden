@@ -43,6 +43,27 @@ class SecurityScannerService:
             logger.error(f"Failed to parse semgrep output: {e}")
             return []
 
+    async def scan_files(self, file_paths: List[Path]) -> List[Dict[str, Any]]:
+        """
+        Runs semgrep on multiple files in parallel.
+        """
+        import asyncio
+        
+        # Helper to run scan_file in a thread to avoid blocking the event loop
+        def scan_sync(path):
+            return self.scan_file(str(path))
+            
+        # Run all scans concurrently
+        tasks = [asyncio.to_thread(scan_sync, p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+        
+        # Flatten the list of findings
+        all_findings = []
+        for result in results:
+            all_findings.extend(result)
+            
+        return all_findings
+
     def calculate_risk_level(self, findings: List[Dict[str, Any]]) -> str:
         """
         Calculates risk level (high, medium, low) based on Semgrep findings.
