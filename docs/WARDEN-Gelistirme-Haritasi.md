@@ -53,23 +53,23 @@ warden/
 
 ## 1. Milestone 0 — Ortam ve İskelet (Hedef: "Merhaba Dünya" seviyesi çalışan bir şey)
 
-**[x] Adım 0.1 — Geliştirme ortamı kurulumu**
+**Adım 0.1 — Geliştirme ortamı kurulumu**
 `uv` kur, Python 3.12 sanal ortamı oluştur, boş bir Git deposu aç.
 ✅ *Bittiğinde göreceğin:* `uv run python --version` komutu 3.12 döndürüyor.
 
-**[x] Adım 0.2 — Proje iskeletini oluştur**
+**Adım 0.2 — Proje iskeletini oluştur**
 Yukarıdaki klasör yapısını oluştur, boş `__init__.py` dosyalarını ekle.
 ✅ *Bittiğinde göreceğin:* Klasör yapısı hazır, henüz kod yok ama proje "var".
 
-**[x] Adım 0.3 — FastAPI "merhaba dünya" endpoint'i**
+**Adım 0.3 — FastAPI "merhaba dünya" endpoint'i**
 Tek bir `/api/v1/health` endpoint'i yaz, `{"status": "ok"}` dönsün.
 ✅ *Bittiğinde göreceğin:* `uv run uvicorn core.main:app --reload` çalıştırıp tarayıcıda `localhost:8000/api/v1/health` açtığında JSON cevabı görüyorsun.
 
-**[x] Adım 0.4 — SQLite bağlantısını kur**
+**Adım 0.4 — SQLite bağlantısını kur**
 SQLModel ile boş bir `scan_results` tablosu tanımla, uygulama açılışında tabloyu otomatik oluştur.
 ✅ *Bittiğinde göreceğin:* Proje klasöründe bir `.db` dosyası oluşuyor, içinde boş tablo var (DB Browser for SQLite ile açıp bakabilirsin).
 
-**[x] Adım 0.5 — İlk testini yaz**
+**Adım 0.5 — İlk testini yaz**
 `/api/v1/health` endpoint'i için tek bir pytest testi yaz.
 ✅ *Bittiğinde göreceğin:* `uv run pytest` komutu "1 passed" yazıyor.
 
@@ -77,31 +77,31 @@ SQLModel ile boş bir `scan_results` tablosu tanımla, uygulama açılışında 
 
 ## 2. Milestone 1 — Security Scanner (İlk Gerçek Özellik)
 
-**[x] Adım 1.1 — Semgrep'i tek başına dener misin?**
+**Adım 1.1 — Semgrep'i tek başına dener misin?**
 Kod yazmadan önce, terminalde `semgrep --config=p/security-audit senin_bir_test_dosyan.py` komutunu manuel çalıştır, çıktısını incele.
 ✅ *Bittiğinde göreceğin:* Semgrep'in ürettiği ham JSON/terminal çıktısına aşina oluyorsun — bir sonraki adımda bunu kod ile parse edeceksin.
 
-**[x] Adım 1.2 — İlk özel kuralını yaz**
+**Adım 1.2 — İlk özel kuralını yaz**
 `rules/vibe_coding/hardcoded-secret.yaml` dosyasını oluştur, tek bir basit kural yaz (örn. `api_key = "..."` paternini yakalasın).
 ✅ *Bittiğinde göreceğin:* Kasıtlı olarak hardcoded key içeren bir test dosyasında Semgrep bu kuralı tetikliyor.
 
-**[x] Adım 1.3 — SecurityScannerService iskeletini yaz**
+**Adım 1.3 — SecurityScannerService iskeletini yaz**
 Semgrep'i Python'dan `subprocess` ile çağıran, JSON çıktısını parse eden basit bir servis sınıfı yaz (henüz API'ye bağlama).
 ✅ *Bittiğinde göreceğin:* `pytest` ile bu servisi doğrudan çağıran bir birim testi geçiyor.
 
-**[x] Adım 1.4 — İkinci ve üçüncü kuralı ekle**
+**Adım 1.4 — İkinci ve üçüncü kuralı ekle**
 `sql-string-concat.yaml` ve `missing-input-validation.yaml` kurallarını yaz.
 ✅ *Bittiğinde göreceğin:* Üç farklı "kirli" test dosyasında üç farklı kural doğru tetikleniyor.
 
-**[x] Adım 1.5 — Servisi API'ye bağla**
+**Adım 1.5 — Servisi API'ye bağla**
 `POST /api/v1/scan` endpoint'ini yaz; gelen dosya yolunu SecurityScannerService'e ver, sonucu JSON olarak dön.
 ✅ *Bittiğinde göreceğin:* `curl` ile bir dosya yolu gönderdiğinde gerçek tarama sonucu JSON olarak dönüyor.
 
-**[x] Adım 1.6 — Sonucu veritabanına kaydet**
+**Adım 1.6 — Sonucu veritabanına kaydet**
 Her tarama sonucunu `scan_results` tablosuna yaz.
 ✅ *Bittiğinde göreceğin:* Birkaç tarama yaptıktan sonra DB Browser'da geçmiş taramaları görebiliyorsun.
 
-**[x] Adım 1.7 — Risk seviyesi hesaplama mantığını ekle**
+**Adım 1.7 — Risk seviyesi hesaplama mantığını ekle**
 Bulunan kuralların önem derecesine göre `low/medium/high` risk seviyesi hesapla.
 ✅ *Bittiğinde göreceğin:* Kritik bir açık içeren dosya "high", temiz bir dosya "low" dönüyor.
 
@@ -109,23 +109,23 @@ Bulunan kuralların önem derecesine göre `low/medium/high` risk seviyesi hesap
 
 ## 3. Milestone 2 — Paket Güvenilirlik Kontrolü
 
-**[x] Adım 2.1 — PyPI API'sini manuel dene**
+**Adım 2.1 — PyPI API'sini manuel dene**
 Tarayıcıda `https://pypi.org/pypi/requests/json` adresini aç, dönen JSON'un yapısına bak.
 ✅ *Bittiğinde göreceğin:* Paketin yayın tarihi, açıklaması gibi alanların JSON'daki yerini biliyorsun.
 
-**[x] Adım 2.2 — httpx ile async registry istemcisi yaz**
+**Adım 2.2 — httpx ile async registry istemcisi yaz**
 Verilen bir paket adı için PyPI'dan metadata çeken basit bir fonksiyon yaz.
 ✅ *Bittiğinde göreceğin:* `pytest` testinde gerçek bir paket adı (`requests`) için metadata dönüyor, olmayan bir isim (`asdkjaskdj123`) için `None` dönüyor.
 
-**[x] Adım 2.3 — Risk puanlama mantığını ekle**
+**Adım 2.3 — Risk puanlama mantığını ekle**
 Yayın tarihi + indirme sayısı üzerinden basit bir puanlama fonksiyonu yaz (npm/PyPI indirme sayısı için ayrı bir API gerekebilir — PyPI için `pypistats.org` API'sini kullanabilirsin).
 ✅ *Bittiğinde göreceğin:* Yeni/az bilinen bir pakette yüksek risk puanı, `requests` gibi popüler bir pakette düşük risk puanı çıkıyor.
 
-**[x] Adım 2.4 — İsim benzerliği (typosquatting) kontrolünü ekle**
+**Adım 2.4 — İsim benzerliği (typosquatting) kontrolünü ekle**
 En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `python-Levenshtein` kütüphanesiyle isim benzerliği hesapla.
 ✅ *Bittiğinde göreceğin:* `reqeusts` (yazım hatalı) gibi bir isim verdiğinde, sistem "`requests`'e çok benziyor, dikkat et" diyor.
 
-**[x] Adım 2.5 — Endpoint'e bağla**
+**Adım 2.5 — Endpoint'e bağla**
 `POST /api/v1/packages/check` endpoint'ini yaz.
 ✅ *Bittiğinde göreceğin:* `curl` ile paket adı gönderdiğinde risk değerlendirmesi JSON olarak dönüyor.
 
@@ -133,23 +133,23 @@ En popüler 1000 PyPI paketinin bir listesini indir, yerel bir dosyada tut; `pyt
 
 ## 4. Milestone 3 — Git Hook Entegrasyonu (İlk Uçtan Uca Kullanım!)
 
-**[x] Adım 3.1 — Basit bir shell betiği yaz**
+**Adım 3.1 — Basit bir shell betiği yaz**
 `git-hooks/pre-commit` dosyasını oluştur; şimdilik yalnızca "WARDEN çalışıyor" yazdırsın.
 ✅ *Bittiğinde göreceğin:* Bir test commit attığında terminalde bu mesajı görüyorsun.
 
-**[x] Adım 3.2 — Değişen dosyaları tespit et**
+**Adım 3.2 — Değişen dosyaları tespit et**
 Betik içinde `git diff --cached --name-only` ile commit'e giren dosyaları listele.
 ✅ *Bittiğinde göreceğin:* Betik, commit ettiğin dosyaların isimlerini terminalde listeliyor.
 
-**[x] Adım 3.3 — Core Engine'e istek at**
+**Adım 3.3 — Core Engine'e istek at**
 Her değişen `.py` dosyası için `curl` ile `/api/v1/scan` endpoint'ine istek at.
 ✅ *Bittiğinde göreceğin:* Bilerek güvenlik açığı olan bir dosyayı commit etmeye çalıştığında, terminalde uyarı çıkıyor.
 
-**[x] Adım 3.4 — Kritik bulguda commit'i engelle**
+**Adım 3.4 — Kritik bulguda commit'i engelle**
 Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 ✅ *Bittiğinde göreceğin:* Güvenlik açığı olan kodu commit edemiyorsun; düzelttiğinde commit geçiyor.
 
-**[x] Adım 3.5 — Kurulum betiği yaz**
+**Adım 3.5 — Kurulum betiği yaz**
 `.git/hooks/pre-commit` içine bu betiği otomatik kopyalayan bir `install.sh` yaz.
 ✅ *Bittiğinde göreceğin:* Tek bir komutla (`./install.sh`) hook kuruluyor — **artık MVP'nin en kritik parçası eninde sonunda çalışıyor.** 🎉
 
@@ -157,61 +157,61 @@ Eğer `risk_level == "high"` dönerse, betik `exit 1` ile commit'i durdursun.
 
 ## 5. Milestone 4 — VS Code Eklentisi (Görsel Geri Bildirim)
 
-**[x] Adım 4.1 — Boş bir VS Code eklentisi iskeleti oluştur**
+**Adım 4.1 — Boş bir VS Code eklentisi iskeleti oluştur**
 `yo code` (Yeoman generator) ile TypeScript eklenti şablonu oluştur.
 ✅ *Bittiğinde göreceğin:* F5'e basınca yeni bir VS Code penceresi açılıyor, eklentin "yüklü" görünüyor.
 
-**[x] Adım 4.2 — Basit bir komut ekle**
+**Adım 4.2 — Basit bir komut ekle**
 Command Palette'ten çağrılabilen, sadece bir bildirim (notification) gösteren bir komut yaz.
 ✅ *Bittiğinde göreceğin:* `Ctrl+Shift+P` → komutunu bul → çalıştır → bildirim çıkıyor.
 
-**[x] Adım 4.3 — Core Engine'e HTTP isteği at**
+**Adım 4.3 — Core Engine'e HTTP isteği at**
 Eklenti içinden `fetch` ile `/api/v1/health` endpoint'ine istek at, sonucu bildirim olarak göster.
 ✅ *Bittiğinde göreceğin:* Eklenti, arka planda çalışan Python servisiyle "konuşuyor".
 
-**[x] Adım 4.4 — Dosya kaydetme olayını yakala**
+**Adım 4.4 — Dosya kaydetme olayını yakala**
 `onDidSaveTextDocument` olayına bağlan, kaydedilen dosyanın yolunu konsola yazdır.
 ✅ *Bittiğinde göreceğin:* Herhangi bir dosyayı kaydettiğinde Debug Console'da dosya yolu görünüyor.
 
-**[x] Adım 4.5 — Kaydetmede taramayı tetikle**
+**Adım 4.5 — Kaydetmede taramayı tetikle**
 Kaydedilen dosyayı `/api/v1/scan`'e gönder, sonucu al.
 ✅ *Bittiğinde göreceğin:* Dosya kaydettiğinde arka planda gerçek bir tarama çalışıyor (henüz görsel çıktı yok, konsolda görüyorsun).
 
-**[x] Adım 4.6 — Diagnostic (Problems paneli) entegrasyonu**
+**Adım 4.6 — Diagnostic (Problems paneli) entegrasyonu**
 `vscode.languages.createDiagnosticCollection` kullanarak bulguları Problems paneline yaz.
 ✅ *Bittiğinde göreceğin:* Güvenlik açığı olan bir satırın altında **kırmızı dalgalı çizgi** görüyorsun, Problems panelinde açıklama okuyabiliyorsun — bu, projenin en tatmin edici anlarından biri olacak.
 
 ---
 
-## 6. Milestone 5 — MCP Sunucusu (Antigravity Entegrasyonu)
+## 6. Milestone 5 — MCP Sunucusu (Claude Code/Antigravity Entegrasyonu)
 
-**[x] Adım 5.1 — MCP SDK'sını kur, en basit örnek sunucuyu çalıştır**
+**Adım 5.1 — MCP SDK'sını kur, en basit örnek sunucuyu çalıştır**
 Anthropic'in resmi Python MCP SDK dokümantasyonundaki "merhaba dünya" sunucu örneğini birebir çalıştır.
 ✅ *Bittiğinde göreceğin:* MCP Inspector aracıyla bu sunucuya bağlanıp örnek aracı çağırabiliyorsun.
 
-**[x] Adım 5.2 — `check_package` aracını MCP'ye ekle**
+**Adım 5.2 — `check_package` aracını MCP'ye ekle**
 Milestone 2'de yazdığın paket kontrol servisini bir MCP tool olarak sar.
 ✅ *Bittiğinde göreceğin:* MCP Inspector'dan bu aracı çağırdığında gerçek paket kontrolü sonucu dönüyor.
 
-**[x] Adım 5.3 — `security_scan` aracını ekle**
+**Adım 5.3 — `security_scan` aracını ekle**
 Aynı şekilde Milestone 1'deki servisi MCP tool'u yap.
 ✅ *Bittiğinde göreceğin:* İki araç da Inspector'dan çalışıyor.
 
-**[x] Adım 5.4 — Antigravity ile bağla**
-Projende `.agents/mcp_config.json` dosyası oluştur, Antigravity'yi bu sunucuyla yapılandır.
-✅ *Bittiğinde göreceğin:* Antigravity'ye "şu paketi kur" dediğinde, benim (ajanın) kendiliğinden `check_package` aracını çağırdığımı göreceksin — **bu, projenin en etkileyici demo anı olacak.**
+**Adım 5.4 — Claude Code ile bağla**
+Projende bir `.mcp.json` dosyası oluştur, Claude Code'u bu sunucuyla yapılandır.
+✅ *Bittiğinde göreceğin:* Claude Code'a "şu paketi kur" dediğinde, ajanın kendiliğinden `check_package` aracını çağırdığını (Claude Code'un tool-call loglarında) görüyorsun — **bu, projenin en etkileyici demo anı olacak.**
 
-**[x] Adım 5.5 — Tehlikeli komut paternlerini tanımla**
+**Adım 5.5 — Tehlikeli komut paternlerini tanımla**
 `AgentActionMonitor` sınıfını yaz; `curl ... | bash`, `rm -rf /`, `chmod 777` gibi 3-5 basit regex paterniyle başla (bkz. mimari raporun 5.3.7-a bölümü).
 ✅ *Bittiğinde göreceğin:* Bu sınıfı doğrudan çağıran bir pytest testinde, tehlikeli komutlar "reddedildi", zararsız komutlar "izin verildi" dönüyor.
 
-**[x] Adım 5.6 — `evaluate_agent_action` aracını MCP'ye ekle**
+**Adım 5.6 — `evaluate_agent_action` aracını MCP'ye ekle**
 Bu servisi de bir MCP tool olarak sar, Inspector'dan test et.
 ✅ *Bittiğinde göreceğin:* Tehlikeli bir komutu Inspector'dan gönderdiğinde `requires_confirmation: true` dönüyor.
 
-**[x] Adım 5.7 — Antigravity'nin `PreToolUse` hook'una bağla**
-Antigravity yapılandırmanda (`.agents/hooks.json`), her `bash` tool çağrısından önce bu MCP aracının otomatik tetiklenmesini sağla.
-✅ *Bittiğinde göreceğin:* Antigravity'ye bilerek tehlikeli bir komut çalıştırtmaya çalıştığında (örn. "şu dosyayı `curl | bash` ile kur"), eylem gerçekleşmeden önce WARDEN devreye girip beni durduracak — **bu, dinamik analiz katmanının ilk, en etkileyici kanıtı.**
+**Adım 5.7 — Claude Code'un `PreToolUse` hook'una bağla**
+Claude Code yapılandırmanda, her `Bash` tool çağrısından önce bu MCP aracının otomatik tetiklenmesini sağla.
+✅ *Bittiğinde göreceğin:* Claude Code'a bilerek tehlikeli bir komut çalıştırtmaya çalıştığında (örn. "şu dosyayı `curl | bash` ile kur"), eylem gerçekleşmeden önce senden onay isteniyor — **bu, dinamik analiz katmanının ilk, en etkileyici kanıtı.**
 
 ---
 
