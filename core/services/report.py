@@ -66,7 +66,7 @@ JSON Verisi:
 Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
 """
             response = client.models.generate_content(
-                model='gemini-3.6-pro',
+                model='gemini-3.6-flash',
                 contents=prompt
             )
             
