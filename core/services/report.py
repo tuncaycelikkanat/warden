@@ -12,14 +12,23 @@ logger = logging.getLogger(__name__)
 class AuditReportService:
     def save_to_db(self, repo_path: str, data: Dict[str, Any]) -> int:
         """Saves the audit result to SQLite and returns the ID."""
+        from core.models.audit import AuditCoreMember
+        
         scorecard = data["scorecard"]
+        gs = scorecard.get("group_scores", {})
+        
         report = AuditReport(
             repo_path=repo_path,
             total_score=scorecard["total_score"],
             grade=scorecard["grade"],
-            profile_signature=data["profile_signature"],
+            profile_signature=data.get("profile_signature", ""),
             layer1_score=scorecard["layer1_score"],
             layer2_score=scorecard["layer2_score"],
+            group_security=gs.get("security_supply_chain"),
+            group_code_health=gs.get("code_health_test"),
+            group_structural=gs.get("structural_health"),
+            group_resilience=gs.get("resilience_performance"),
+            group_dev_hygiene=gs.get("dev_hygiene_devops"),
             raw_data=data
         )
         
@@ -27,6 +36,29 @@ class AuditReportService:
             session.add(report)
             session.commit()
             session.refresh(report)
+            
+            # Save member scores
+            from core.services.core_group_catalog import MEMBER_TO_GROUP
+            ms = scorecard.get("breakdown", {}).get("member_scores", {})
+            for key, score in ms.items():
+                grp = MEMBER_TO_GROUP.get(key)
+                group_key = grp.key if grp else "unknown"
+                member_label = key
+                if grp:
+                    for m in grp.members:
+                        if m.key == key:
+                            member_label = m.label
+                            break
+                member = AuditCoreMember(
+                    report_id=report.id,
+                    group_key=group_key,
+                    member_key=key,
+                    member_label=member_label,
+                    score=float(score)
+                )
+                session.add(member)
+            session.commit()
+            
             return report.id
 
     def generate_markdown(self, repo_path: str, data: Dict[str, Any]) -> str:
@@ -57,7 +89,7 @@ Raporun adı "WARDEN — Kapsamlı Proje İnceleme ve Denetim Raporu" olsun.
 3. Zafiyetler ve Teknik Borçlar (JSON'daki security ve leaks kısımlarını referans al, uydurma)
 4. Kod Kalitesi ve Test Kapsamı (JSON'daki coverage ve complexity değerlerini referans al)
 5. Kategori Bazlı LLM Değerlendirmesi (Layer 2 verilerini detaylandır)
-6. Genel Puan Tablosu (Total Score ve Grade)
+6. Genel Puan Tablosu (Total Score, Grade ve Layer 1 Grup Puanları: group_scores)
 7. Gelecek Yol Haritası ve Somut Aksiyon Önerileri
 
 JSON Verisi:
@@ -65,10 +97,24 @@ JSON Verisi:
 
 Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
 """
-            response = client.models.generate_content(
-                model='gemini-3.6-flash',
-                contents=prompt
-            )
+            models_to_try = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash']
+            response = None
+            last_err = None
+            
+            for model_name in models_to_try:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        break
+                except Exception as err:
+                    last_err = err
+                    continue
+                    
+            if not response or not response.text:
+                raise last_err if last_err else Exception("No response received from Gemini")
             
             content = response.text.replace("```markdown", "").replace("```", "").strip()
             out_path.write_text(content, encoding="utf-8")

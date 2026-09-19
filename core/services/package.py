@@ -82,7 +82,7 @@ class PackageCheckerService:
             details = ["Package not found on PyPI"]
             if typo_mimic:
                 details.append(f"Typosquatting alert: suspiciously similar to popular package '{typo_mimic}'")
-            return {"risk_level": "high", "details": details}
+            return {"package": package_name, "risk_level": "high", "details": details}
             
         stats = await self.get_pypi_stats(package_name)
         
