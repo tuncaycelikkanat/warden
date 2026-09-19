@@ -38,23 +38,27 @@ class AuditReportService:
             session.refresh(report)
             
             # Save member scores
-            from core.services.core_group_catalog import MEMBER_TO_GROUP
+            from core.services.core_group_catalog import MEMBER_TO_GROUP, CATALOG_VERSION
             ms = scorecard.get("breakdown", {}).get("member_scores", {})
             for key, score in ms.items():
                 grp = MEMBER_TO_GROUP.get(key)
                 group_key = grp.key if grp else "unknown"
                 member_label = key
+                member_weight = None
                 if grp:
                     for m in grp.members:
                         if m.key == key:
                             member_label = m.label
+                            member_weight = m.weight
                             break
                 member = AuditCoreMember(
                     report_id=report.id,
                     group_key=group_key,
                     member_key=key,
                     member_label=member_label,
-                    score=float(score)
+                    score=float(score),
+                    weight_at_time=member_weight,
+                    catalog_version=CATALOG_VERSION
                 )
                 session.add(member)
             session.commit()
@@ -97,7 +101,7 @@ JSON Verisi:
 
 Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
 """
-            models_to_try = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash']
+            models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.5-flash', 'gemini-3.6-flash']
             response = None
             last_err = None
             

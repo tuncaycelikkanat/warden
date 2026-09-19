@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List
 
+CATALOG_VERSION = "1.0.0"
+
 @dataclass
 class CoreMember:
     key: str

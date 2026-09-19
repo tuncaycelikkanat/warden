@@ -28,4 +28,6 @@ class AuditCoreMember(SQLModel, table=True):
     member_key: str
     member_label: str
     score: float
+    weight_at_time: Optional[float] = None
+    catalog_version: Optional[str] = None
     details: Optional[str] = None  # JSON olarak detaylar

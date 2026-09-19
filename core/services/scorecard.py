@@ -86,11 +86,10 @@ class ScorecardAggregatorService:
             
         if "coverage" in data and "test_coverage" not in scores:
             cov = data.get("coverage")
-            if cov is None or cov == 0.0:
-                scores["test_coverage"] = 0.0
-            else:
+            if cov is not None:
                 cov_val = float(cov)
                 scores["test_coverage"] = max(0.0, min(100.0, round((cov_val / 80.0) * 100.0, 1)))
+            # If cov is None -> unmeasured, omitted so weight redistributes to remaining members
             
         if "complexity" in data and "complexity_radon" not in scores:
             comp = data.get("complexity", {})

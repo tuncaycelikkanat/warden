@@ -94,7 +94,7 @@ class AuditOrchestrator:
             "complexity": comp_res.__dict__,
             "lint": lint_res.__dict__,
             "leaks": [s.__dict__ for s in sec_leak_res.leaked_secrets],
-            "coverage": cov_res.coverage_pct or 0.0,
+            "coverage": cov_res.coverage_pct,
             "docs": doc_res.__dict__,
             "resilience": [f.__dict__ for f in res_res.findings],
             
