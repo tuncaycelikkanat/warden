@@ -23,6 +23,9 @@ if __name__ == "__main__":
     import asyncio
     
     if len(sys.argv) > 1 and sys.argv[1] == "audit":
+        from dotenv import load_dotenv
+        load_dotenv()
+        
         import argparse
         parser = argparse.ArgumentParser(description="Run WARDEN full audit")
         parser.add_argument("audit", help="Run audit command")

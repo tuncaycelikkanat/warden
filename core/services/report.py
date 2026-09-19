@@ -30,45 +30,53 @@ class AuditReportService:
             return report.id
 
     def generate_markdown(self, repo_path: str, data: Dict[str, Any]) -> str:
-        """Generates WARDEN_SCORECARD.md and saves it to the repo root."""
-        scorecard = data["scorecard"]
+        """Generates WARDEN_EXECUTIVE_REPORT.md using Gemini and saves it to the repo root."""
+        import os
+        from google import genai
         
-        md = []
-        md.append(f"# WARDEN Audit Scorecard")
-        md.append(f"**Repository:** `{repo_path}`")
-        md.append(f"**Total Score:** `{scorecard['total_score']}/100`")
-        md.append(f"**Grade:** `{scorecard['grade']}`")
-        md.append(f"**Profile Signature:** `{data['profile_signature']}`\n")
+        api_key = os.getenv("GEMINI_API_KEY")
+        out_path = Path(repo_path) / "WARDEN_EXECUTIVE_REPORT.md"
         
-        md.append(f"## Layer 1 (Mechanical Checks) - Score: {scorecard['layer1_score']}")
-        l1_raw = scorecard["breakdown"]["layer1_raw"]
-        md.append(f"- **Coverage:** {l1_raw['coverage']}%")
-        md.append(f"- **Lint Errors:** {l1_raw['lint']['error_count']}")
-        md.append(f"- **Complexity:** {l1_raw['complexity']['avg_complexity']} avg")
-        md.append(f"- **Leaks:** {len(l1_raw['leaks'])}")
-        md.append(f"- **Security Findings:** {len(l1_raw['security'])}")
-        md.append(f"- **Resilience Findings:** {len(l1_raw['resilience'])}")
-        
-        vuln_deps = [d for d in l1_raw['dependencies'] if d['known_vulnerabilities'] or d['status'] != 'ok']
-        md.append(f"- **Vulnerable Dependencies:** {len(vuln_deps)}")
-        
-        md.append(f"\n## Layer 2 (LLM Rubric Evaluator) - Score: {scorecard['layer2_score']}")
-        l2_raw = scorecard["breakdown"]["layer2_raw"]
-        if not l2_raw:
-            md.append("*No dynamic categories matched.*")
-        else:
-            for cat in l2_raw:
-                md.append(f"### {cat['label']}")
-                verdict = cat["rubric_verdict"]
-                md.append(f"- **Level:** {verdict['level']}/10")
-                md.append(f"- **Justification:** {verdict['justification']}")
-                md.append(f"- **Cited Evidence:** {', '.join(verdict['cited_evidence']) if verdict['cited_evidence'] else 'None'}")
-                
-        content = "\n".join(md)
-        
-        # Save to WARDEN_SCORECARD.md
-        out_path = Path(repo_path) / "WARDEN_SCORECARD.md"
-        out_path.write_text(content, encoding="utf-8")
-        logger.info(f"Generated scorecard at {out_path.resolve()}")
-        
+        # Base fallback if no API key
+        if not api_key:
+            logger.warning("No GEMINI_API_KEY found. Generating basic fallback report.")
+            content = f"# WARDEN Basic Report\nScore: {data['scorecard']['total_score']}/100"
+            out_path.write_text(content, encoding="utf-8")
+            return str(out_path.resolve())
+            
+        try:
+            client = genai.Client(api_key=api_key)
+            prompt = f"""
+Sen WARDEN Baş Denetçisisin (Chief Security & Architecture Auditor).
+Sana bir projenin tam teşekküllü (Layer 1 mekanik + Layer 2 LLM) denetim sonuçlarını JSON olarak veriyorum.
+Görevin, bu JSON verilerini analiz edip tıpkı aşağıdaki örnek yapıya ve üsluba sahip, ÇOK KAPSAMLI, GÖRSEL, İKONLU ve YÖNETİCİ ÖZETİ (Executive Summary) niteliğinde bir Markdown raporu yazmaktır.
+Raporun adı "WARDEN — Kapsamlı Proje İnceleme ve Denetim Raporu" olsun.
+İçinde:
+1. Yönetici Özeti
+2. Mimari ve Güvenlik Durumu
+3. Zafiyetler ve Teknik Borçlar (JSON'daki security ve leaks kısımlarını referans al, uydurma)
+4. Kod Kalitesi ve Test Kapsamı (JSON'daki coverage ve complexity değerlerini referans al)
+5. Kategori Bazlı LLM Değerlendirmesi (Layer 2 verilerini detaylandır)
+6. Genel Puan Tablosu (Total Score ve Grade)
+7. Gelecek Yol Haritası ve Somut Aksiyon Önerileri
+
+JSON Verisi:
+{json.dumps(data, indent=2)}
+
+Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
+"""
+            response = client.models.generate_content(
+                model='gemini-3.6-pro',
+                contents=prompt
+            )
+            
+            content = response.text.replace("```markdown", "").replace("```", "").strip()
+            out_path.write_text(content, encoding="utf-8")
+            logger.info(f"Generated AI Executive scorecard at {out_path.resolve()}")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate AI report: {e}")
+            content = f"# WARDEN Fallback Report\nScore: {data['scorecard']['total_score']}/100\nError: {e}"
+            out_path.write_text(content, encoding="utf-8")
+            
         return str(out_path.resolve())
