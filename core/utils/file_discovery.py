@@ -1,14 +1,17 @@
 import os
 from pathlib import Path
-from typing import List
 
-def discover_source_files(repo_path: Path) -> List[Path]:
+
+def discover_source_files(repo_path: Path) -> list[Path]:
     """
     Discovers source files (.py, .js, .ts) in the given repository path,
     excluding common virtual environment and dependency directories.
     """
     allowed_extensions = {".py", ".js", ".ts"}
-    excluded_dirs = {".venv", "venv", "node_modules", ".git", "__pycache__", "dist", "build"}
+    excluded_dirs = {
+        ".venv", "venv", "node_modules", ".git", "__pycache__", "dist", "build",
+        "fixtures", "test_data", "testdata", ".pytest_cache", ".ruff_cache", ".mypy_cache"
+    }
     
     source_files = []
     
@@ -17,6 +20,9 @@ def discover_source_files(repo_path: Path) -> List[Path]:
         dirs[:] = [d for d in dirs if d not in excluded_dirs and not d.startswith('.')]
         
         for file in files:
+            # Exclude dummy/scratch test files
+            if file.startswith("dummy_"):
+                continue
             file_path = Path(root) / file
             if file_path.suffix in allowed_extensions:
                 source_files.append(file_path)

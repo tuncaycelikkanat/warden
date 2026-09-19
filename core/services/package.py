@@ -1,14 +1,15 @@
-import httpx
-import logging
 import json
+import logging
 import os
+from typing import Any
+
+import httpx
 import Levenshtein
-from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
 class PackageCheckerService:
-    async def get_pypi_metadata(self, package_name: str) -> Optional[Dict[str, Any]]:
+    async def get_pypi_metadata(self, package_name: str) -> dict[str, Any] | None:
         """
         Fetches metadata for a given package from PyPI.
         Returns the parsed JSON dictionary, or None if the package does not exist.
@@ -46,7 +47,7 @@ class PackageCheckerService:
                 logger.warning(f"Failed to fetch pypistats for {package_name}: {e}")
                 return 0
 
-    def check_typosquatting(self, package_name: str) -> Optional[str]:
+    def check_typosquatting(self, package_name: str) -> str | None:
         """
         Checks if the package name is suspiciously similar to a top 1000 PyPI package.
         Returns the name of the popular package it's mimicking, or None.
@@ -70,7 +71,7 @@ class PackageCheckerService:
                 
         return None
 
-    async def calculate_risk_score(self, package_name: str) -> Dict[str, Any]:
+    async def calculate_risk_score(self, package_name: str) -> dict[str, Any]:
         """
         Calculates a risk score for a package based on PyPI metadata and stats.
         Returns a dict with 'risk_level' (low, medium, high) and 'details'.
@@ -86,7 +87,6 @@ class PackageCheckerService:
             
         stats = await self.get_pypi_stats(package_name)
         
-        info = metadata.get("info", {})
         releases = metadata.get("releases", {})
         
         total_releases = len(releases)

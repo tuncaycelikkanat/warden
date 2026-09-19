@@ -1,8 +1,9 @@
 import hashlib
-from pathlib import Path
-from typing import List, Dict, Any, Union
 from dataclasses import dataclass
+from pathlib import Path
+
 from core.utils.file_discovery import discover_source_files
+
 
 @dataclass
 class Signal:
@@ -10,7 +11,7 @@ class Signal:
         raise NotImplementedError
 
 class DependencySignal(Signal):
-    def __init__(self, any_of: List[str]):
+    def __init__(self, any_of: list[str]):
         self.any_of = any_of
         
     def matches(self, repo_path: Path) -> bool:
@@ -25,7 +26,7 @@ class DependencySignal(Signal):
         return False
 
 class DirectorySignal(Signal):
-    def __init__(self, any_of: List[str] = None, all_of: List[str] = None):
+    def __init__(self, any_of: list[str] | None = None, all_of: list[str] | None = None):
         self.any_of = any_of or []
         self.all_of = all_of or []
         
@@ -43,7 +44,7 @@ class DirectorySignal(Signal):
         return False
 
 class FilePatternSignal(Signal):
-    def __init__(self, any_of: List[str], min_count: int = 1):
+    def __init__(self, any_of: list[str], min_count: int = 1):
         self.any_of = any_of
         self.min_count = min_count
         
@@ -54,7 +55,7 @@ class FilePatternSignal(Signal):
         return count >= self.min_count
 
 class SourcePatternSignal(Signal):
-    def __init__(self, any_of: List[str]):
+    def __init__(self, any_of: list[str]):
         self.any_of = any_of
         
     def matches(self, repo_path: Path) -> bool:
@@ -65,7 +66,7 @@ class SourcePatternSignal(Signal):
                 for pattern in self.any_of:
                     if pattern in content:
                         return True
-            except:
+            except Exception:
                 continue
         return False
 
@@ -115,11 +116,11 @@ CATEGORY_CATALOG = {
 class MatchedCategory:
     key: str
     label: str
-    evidence: List[Signal]
+    evidence: list[Signal]
 
 @dataclass
 class ProjectProfile:
-    dynamic_categories: List[MatchedCategory]
+    dynamic_categories: list[MatchedCategory]
     signature: str
     catalog_version: str
 
@@ -143,7 +144,7 @@ class ProjectProfilerService:
             catalog_version=CATALOG_VERSION,
         )
         
-    def _compute_signature(self, selected: List[MatchedCategory]) -> str:
+    def _compute_signature(self, selected: list[MatchedCategory]) -> str:
         # Create a deterministic string from selected category keys
         keys = sorted([c.key for c in selected])
         raw = "::".join(keys)

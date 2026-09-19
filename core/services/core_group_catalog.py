@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 CATALOG_VERSION = "1.0.0"
 
@@ -15,7 +14,7 @@ class CoreGroup:
     label: str
     emoji: str
     weight: float  # toplam L1 içindeki ağırlık (0-1 arasında)
-    members: List[CoreMember] = field(default_factory=list)
+    members: list[CoreMember] = field(default_factory=list)
 
 CORE_GROUPS = [
     CoreGroup(

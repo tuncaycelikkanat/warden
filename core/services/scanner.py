@@ -1,8 +1,8 @@
-import subprocess
 import json
 import logging
+import subprocess
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ class SecurityScannerService:
     def __init__(self, rule_dir: str = "core/rules/vibe_coding"):
         self.rule_dir = rule_dir
 
-    def scan_file(self, file_path: str) -> List[Dict[str, Any]]:
+    def scan_file(self, file_path: str) -> list[dict[str, Any]]:
         """
         Runs semgrep on the specified file using the configured rules directory.
         Returns a list of findings.
@@ -43,7 +43,7 @@ class SecurityScannerService:
             logger.error(f"Failed to parse semgrep output: {e}")
             return []
 
-    async def scan_files(self, file_paths: List[Path]) -> List[Dict[str, Any]]:
+    async def scan_files(self, file_paths: list[Path]) -> list[dict[str, Any]]:
         """
         Runs semgrep on multiple files in parallel.
         """
@@ -64,7 +64,7 @@ class SecurityScannerService:
             
         return all_findings
 
-    def calculate_risk_level(self, findings: List[Dict[str, Any]]) -> str:
+    def calculate_risk_level(self, findings: list[dict[str, Any]]) -> str:
         """
         Calculates risk level (high, medium, low) based on Semgrep findings.
         """

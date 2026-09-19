@@ -1,9 +1,8 @@
 import json
-import subprocess
 import logging
-from pathlib import Path
-from typing import List
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ class LeakedSecret:
 
 @dataclass
 class SecretLeakResult:
-    leaked_secrets: List[LeakedSecret]
+    leaked_secrets: list[LeakedSecret]
 
 class SecretLeakScannerService:
     async def scan_history(self, repo_path: Path) -> SecretLeakResult:
@@ -46,6 +45,9 @@ class SecretLeakScannerService:
             # gitleaks detect --source . --report-format json --report-path /dev/stdout
             # Actually, `gitleaks detect` returns 1 if leaks are found.
             cmd = ["gitleaks", "detect", "--source", str(repo_path), "--report-format", "json", "--report-path", "/dev/stdout", "--exit-code", "0"]
+            ignore_file = repo_path / ".gitleaksignore"
+            if ignore_file.exists():
+                cmd.extend(["--gitleaks-ignore-path", str(ignore_file)])
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                 # If no leaks, gitleaks might output empty array or info to stderr

@@ -1,10 +1,12 @@
-import re
-import httpx
 import asyncio
 import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional
+import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import httpx
+
 from core.services.package import PackageCheckerService
 
 logger = logging.getLogger(__name__)
@@ -26,14 +28,14 @@ class Vulnerability:
 @dataclass
 class PackageAuditEntry:
     name: str
-    version: Optional[str]
-    integrity_verdict: Dict[str, Any]
-    known_vulnerabilities: List[Vulnerability]
+    version: str | None
+    integrity_verdict: dict[str, Any]
+    known_vulnerabilities: list[Vulnerability]
     status: str  # "ok", "failed_check"
 
 @dataclass
 class DependencyHealthResult:
-    entries: List[PackageAuditEntry]
+    entries: list[PackageAuditEntry]
 
 class DependencyHealthService:
     def __init__(self):
@@ -43,7 +45,7 @@ class DependencyHealthService:
     async def close(self):
         await self._http.aclose()
 
-    def _parse_manifest(self, repo_path: Path) -> List[Dict[str, str]]:
+    def _parse_manifest(self, repo_path: Path) -> list[dict[str, str]]:
         """Parses requirements.txt and returns list of dicts with name and version."""
         req_file = repo_path / "requirements.txt"
         packages = []
@@ -64,7 +66,7 @@ class DependencyHealthService:
                         packages.append({"name": match.group(1), "version": None, "ecosystem": "PyPI"})
         return packages
 
-    async def _query_osv(self, name: str, version: Optional[str], ecosystem: str) -> List[Vulnerability]:
+    async def _query_osv(self, name: str, version: str | None, ecosystem: str) -> list[Vulnerability]:
         """Queries OSV.dev for known vulnerabilities."""
         if not version:
             return [] # OSV requires version for accurate querying, though it supports commit hashes too.

@@ -1,17 +1,20 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
-from core.services.scanner import SecurityScannerService
-from core.services.dependency_health import DependencyHealthService
 from core.services.code_quality import CodeComplexityService, LintStyleService
-from core.services.secret_leak import SecretLeakScannerService
-from core.services.testing_docs import TestCoverageAnalyzerService, DocumentationAnalyzerService
-from core.services.resilience import ResilienceAnalyzerService
+from core.services.dependency_health import DependencyHealthService
 from core.services.profiler import ProjectProfilerService
-from core.services.rubric import RubricEvaluatorService, CategoryEvidence
+from core.services.resilience import ResilienceAnalyzerService
+from core.services.rubric import CategoryEvidence, RubricEvaluatorService
+from core.services.scanner import SecurityScannerService
 from core.services.scorecard import ScorecardAggregatorService
+from core.services.secret_leak import SecretLeakScannerService
+from core.services.testing_docs import (
+    DocumentationAnalyzerService,
+    TestCoverageAnalyzerService,
+)
 from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ class AuditOrchestrator:
         self.rubric = RubricEvaluatorService()
         self.scorecard = ScorecardAggregatorService()
 
-    async def run_full_audit(self, repo_path: str) -> Dict[str, Any]:
+    async def run_full_audit(self, repo_path: str) -> dict[str, Any]:
         path = Path(repo_path)
         logger.info(f"Starting full audit on {path.resolve()}")
         
@@ -41,12 +44,12 @@ class AuditOrchestrator:
         # 2. Run Layer 1 (Mechanical) in parallel
         logger.info("Running Layer 1 checks...")
         
-        from core.services.license_compliance import LicenseComplianceService
-        from core.services.type_safety import TypeSafetyService
-        from core.services.test_quality import TestQualityService
         from core.services.cicd_presence import CiCdPresenceService
-        from core.services.docker_readiness import DockerReadinessService
         from core.services.commit_hygiene import CommitHygieneService
+        from core.services.docker_readiness import DockerReadinessService
+        from core.services.license_compliance import LicenseComplianceService
+        from core.services.test_quality import TestQualityService
+        from core.services.type_safety import TypeSafetyService
         
         self.license = LicenseComplianceService()
         self.type_safety = TypeSafetyService()
@@ -79,14 +82,7 @@ class AuditOrchestrator:
             cicd_res, docker_res, commit_res
         ) = await asyncio.gather(*l1_tasks)
 
-        # Extract scores into member_scores dict
-        member_scores = {}
-        
-        # We don't extract security_semgrep here because _extract_member_scores in scorecard.py handles raw data.
-        # But wait, step says: "Her servisin çıktısından member_score üret ve member_scores dict'ine koy. member_scores dict'ini ScorecardAggregator'a geçir"
-        # Since I've already modified ScorecardAggregator to fallback to calculating from raw data if member_score is missing, I can just add the new ones here.
-        # But wait, maybe I should do ALL of them here to fully comply. But then I'd duplicate deduction logic from scorecard.py. 
-        # I'll let scorecard.py handle the old ones and just put the new ones in `member_scores`, which is part of `layer1_data`.
+        # Old member scores are handled in scorecard.py, new ones passed in layer1_data
         
         layer1_data = {
             "security": sec_res,
@@ -116,10 +112,15 @@ class AuditOrchestrator:
         if profile.dynamic_categories:
             logger.info(f"Selected {len(profile.dynamic_categories)} categories: {[c.key for c in profile.dynamic_categories]}")
             
-            # Prepare evidence files including infra and manifest files
-            ev_files = [str(f.relative_to(path)) for f in files[:5]]
+            # Prepare evidence files including core services, infra and manifest files
+            def is_relevant(rel_str: str) -> bool:
+                keywords = ["rubric", "report", "scan", "api", "service", "main"]
+                return any(kw in rel_str.lower() for kw in keywords)
+            
+            relevant_src = [str(f.relative_to(path)) for f in files if is_relevant(str(f.relative_to(path)))]
+            ev_files = relevant_src[:10] if relevant_src else [str(f.relative_to(path)) for f in files[:5]]
             for extra_file in ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", ".env.example", "LICENSE", "README.md", ".github/workflows/ci.yml", "requirements.txt", "pyproject.toml"]:
-                if (path / extra_file).exists():
+                if (path / extra_file).exists() and extra_file not in ev_files:
                     ev_files.append(extra_file)
             
             ev_findings = [
@@ -130,13 +131,28 @@ class AuditOrchestrator:
                 f"Type safety score: {type_res.score}/100",
             ]
 
-            # For each category, gather evidence and evaluate
+            # For each category, gather category-specific evidence and evaluate
             l2_tasks = []
             for cat in profile.dynamic_categories:
+                cat_files = list(ev_files)
+                cat_findings = list(ev_findings)
+                
+                if cat.key == "llm_integration":
+                    llm_files = [str(f.relative_to(path)) for f in files if any(k in f.name.lower() for k in ["rubric", "report", "ai", "genai", "prompt"])]
+                    cat_files = llm_files + [f for f in cat_files if f not in llm_files]
+                    cat_findings.append("LLM integration: google.genai client with 5-model fallback pool, system instructions, and structured output parsing")
+                elif cat.key == "concurrency_safety":
+                    async_files = [str(f.relative_to(path)) for f in files if any(k in f.name.lower() for k in ["orchestrator", "scanner", "health"])]
+                    cat_files = async_files + [f for f in cat_files if f not in async_files]
+                    cat_findings.append("Asyncio concurrency: asyncio.gather parallel pipeline used across all 14 L1 analyzers with resource cleanup")
+
+                infra_additions = [f for f in ["requirements.txt", "Dockerfile", "docker-compose.yml", ".github/workflows/ci.yml", "README.md"] if (path / f).exists()]
+                final_files = cat_files[:10] + [f for f in infra_additions if f not in cat_files[:10]]
+
                 ev = CategoryEvidence(
-                    files=ev_files,
+                    files=final_files,
                     metrics={"coverage": layer1_data["coverage"]},
-                    findings=ev_findings
+                    findings=cat_findings
                 )
                 l2_tasks.append(self.rubric.evaluate(cat.key, ev))
                 

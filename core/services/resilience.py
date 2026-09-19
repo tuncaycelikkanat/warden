@@ -1,8 +1,8 @@
 import ast
 import logging
-from pathlib import Path
-from typing import List
 from dataclasses import dataclass
+from pathlib import Path
+
 from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class ResilienceFinding:
 
 @dataclass
 class ResilienceResult:
-    findings: List[ResilienceFinding]
+    findings: list[ResilienceFinding]
 
 class ResilienceAnalyzerService:
     async def analyze(self, repo_path: Path) -> ResilienceResult:
@@ -43,7 +43,7 @@ class ResilienceAnalyzerService:
         findings = await asyncio.to_thread(scan_files)
         return ResilienceResult(findings=findings)
 
-    def _find_bare_except(self, tree: ast.AST, file_path: Path) -> List[ResilienceFinding]:
+    def _find_bare_except(self, tree: ast.AST, file_path: Path) -> list[ResilienceFinding]:
         findings = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ExceptHandler):
@@ -61,7 +61,7 @@ class ResilienceAnalyzerService:
                     ))
         return findings
 
-    def _find_missing_timeout(self, tree: ast.AST, file_path: Path) -> List[ResilienceFinding]:
+    def _find_missing_timeout(self, tree: ast.AST, file_path: Path) -> list[ResilienceFinding]:
         findings = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):

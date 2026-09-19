@@ -1,7 +1,8 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
+
 from sqlmodel import Session
 
 from core.infra.database import engine
@@ -10,7 +11,7 @@ from core.models.audit import AuditReport
 logger = logging.getLogger(__name__)
 
 class AuditReportService:
-    def save_to_db(self, repo_path: str, data: Dict[str, Any]) -> int:
+    def save_to_db(self, repo_path: str, data: dict[str, Any]) -> int:
         """Saves the audit result to SQLite and returns the ID."""
         from core.models.audit import AuditCoreMember
         
@@ -38,7 +39,10 @@ class AuditReportService:
             session.refresh(report)
             
             # Save member scores
-            from core.services.core_group_catalog import MEMBER_TO_GROUP, CATALOG_VERSION
+            from core.services.core_group_catalog import (
+                CATALOG_VERSION,
+                MEMBER_TO_GROUP,
+            )
             ms = scorecard.get("breakdown", {}).get("member_scores", {})
             for key, score in ms.items():
                 grp = MEMBER_TO_GROUP.get(key)
@@ -65,9 +69,10 @@ class AuditReportService:
             
             return report.id
 
-    def generate_markdown(self, repo_path: str, data: Dict[str, Any]) -> str:
+    def generate_markdown(self, repo_path: str, data: dict[str, Any]) -> str:
         """Generates WARDEN_EXECUTIVE_REPORT.md using Gemini and saves it to the repo root."""
         import os
+
         from google import genai
         
         api_key = os.getenv("GEMINI_API_KEY")
@@ -101,7 +106,7 @@ JSON Verisi:
 
 Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
 """
-            models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.5-flash', 'gemini-3.6-flash']
+            models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']
             response = None
             last_err = None
             

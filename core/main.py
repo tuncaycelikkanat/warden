@@ -1,8 +1,11 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from core.infra.database import create_db_and_tables
-from core.api.scan import router as scan_router
+
+from fastapi import FastAPI
+
 from core.api.package import router as package_router
+from core.api.scan import router as scan_router
+from core.infra.database import create_db_and_tables
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,8 +22,8 @@ async def health_check():
     return {"status": "ok"}
 
 if __name__ == "__main__":
-    import sys
     import asyncio
+    import sys
     
     if len(sys.argv) > 1 and sys.argv[1] == "audit":
         from dotenv import load_dotenv

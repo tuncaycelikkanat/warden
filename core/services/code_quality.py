@@ -1,21 +1,21 @@
-import subprocess
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Any, List
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class ComplexityResult:
     avg_complexity: float
-    high_complexity_files: List[Dict[str, Any]]
+    high_complexity_files: list[dict[str, Any]]
 
 @dataclass
 class LintResult:
     error_count: int
-    issues_by_rule: Dict[str, int]
+    issues_by_rule: dict[str, int]
 
 class CodeComplexityService:
     async def analyze(self, repo_path: Path) -> ComplexityResult:
@@ -23,8 +23,8 @@ class CodeComplexityService:
         import asyncio
         
         def run_radon():
-            # Run radon cc <repo_path> --json -a (average)
-            cmd = ["radon", "cc", str(repo_path), "--json", "-a"]
+            # Run radon cc <repo_path> --json -a (average), excluding fixtures and dummy files
+            cmd = ["radon", "cc", str(repo_path), "--json", "-a", "-i", "fixtures,test_data", "-e", "*dummy_*"]
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                 return json.loads(result.stdout)
@@ -69,7 +69,7 @@ class LintStyleService:
         import asyncio
         
         def run_ruff():
-            cmd = ["ruff", "check", str(repo_path), "--output-format=json"]
+            cmd = ["ruff", "check", str(repo_path), "--output-format=json", "--exclude", "fixtures,test_data,tests/fixtures,tests/test_data,dummy_*.py"]
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                 # Ruff might return exit code 1 if issues found, so we ignore check=True

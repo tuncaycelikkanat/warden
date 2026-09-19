@@ -1,16 +1,15 @@
 import json
-import subprocess
 import logging
-from pathlib import Path
+import subprocess
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class CoverageResult:
     measured: bool
-    coverage_pct: Optional[float]
+    coverage_pct: float | None
 
 class TestCoverageAnalyzerService:
     async def analyze(self, repo_path: Path) -> CoverageResult:

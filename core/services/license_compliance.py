@@ -1,9 +1,8 @@
 import json
-import subprocess
 import logging
-from pathlib import Path
+import subprocess
 from dataclasses import dataclass
-from typing import List, Dict, Any, Tuple
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +11,7 @@ class LicenseResult:
     score: float
     copyleft_count: int
     unknown_count: int
-    dependencies: List[Dict[str, str]]
+    dependencies: list[dict[str, str]]
 
 class LicenseComplianceService:
     async def analyze(self, repo_path: Path) -> LicenseResult:

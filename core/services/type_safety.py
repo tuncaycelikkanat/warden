@@ -1,7 +1,8 @@
-import subprocess
 import logging
-from pathlib import Path
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
+
 from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class TypeSafetyService:
             try:
                 subprocess.run(["uv", "pip", "install", "mypy"], cwd=str(repo_path), capture_output=True, check=False)
                 res = subprocess.run(
-                    ["uv", "run", "mypy", str(repo_path), "--no-error-summary", "--ignore-missing-imports"],
+                    ["uv", "run", "mypy", str(repo_path), "--no-error-summary", "--ignore-missing-imports", "--exclude", "(fixtures|test_data|dummy_)"],
                     cwd=str(repo_path), capture_output=True, text=True, check=False
                 )
                 

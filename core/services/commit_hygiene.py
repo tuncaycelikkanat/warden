@@ -1,7 +1,7 @@
-import subprocess
 import logging
-from pathlib import Path
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,7 @@ class CommitHygieneService:
             words = lower_msg.split()
             
             is_bad = False
-            if len(subject) < 5:
-                is_bad = True
-            elif len(words) <= 1:
-                is_bad = True
-            elif any(bp == lower_msg for bp in bad_patterns):
+            if len(subject) < 5 or len(words) <= 1 or any(bp == lower_msg for bp in bad_patterns):
                 is_bad = True
                 
             if is_bad:

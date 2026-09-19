@@ -1,0 +1,3 @@
+b069d74656acba3d897cedc5af7b5e282c0565a3:tests/test_data/audit_test/vuln2.py:generic-api-key:2
+4f5cbfc7ea17bc65e3d1e7a64b4836c7ece4bb64:dummy_test.py:stripe-access-token:11
+4f5cbfc7ea17bc65e3d1e7a64b4836c7ece4bb64:dummy_test.py:aws-access-token:12

@@ -1,6 +1,7 @@
 import logging
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any
+
 from core.services.core_group_catalog import CORE_GROUPS, MEMBER_TO_GROUP
 
 logger = logging.getLogger(__name__)
@@ -11,15 +12,15 @@ class ScorecardResult:
     layer1_score: int
     layer2_score: int
     grade: str  # A+, A, B, C, D, F
-    breakdown: Dict[str, Any]
-    group_scores: Dict[str, float] = None
+    breakdown: dict[str, Any]
+    group_scores: dict[str, float] = None
 
 class ScorecardAggregatorService:
     def __init__(self):
         self.layer1_weight = 0.60
         self.layer2_weight = 0.40
 
-    def calculate(self, layer1_data: Dict[str, Any], layer2_data: List[Dict[str, Any]]) -> ScorecardResult:
+    def calculate(self, layer1_data: dict[str, Any], layer2_data: list[dict[str, Any]]) -> ScorecardResult:
         """
         Calculates the final scorecard.
         Layer 1 max score = 100.
@@ -54,7 +55,7 @@ class ScorecardAggregatorService:
             group_scores=group_scores
         )
 
-    def _extract_member_scores(self, data: Dict[str, Any]) -> Dict[str, float]:
+    def _extract_member_scores(self, data: dict[str, Any]) -> dict[str, float]:
         scores = {}
         
         # In case member scores are provided directly
@@ -128,7 +129,7 @@ class ScorecardAggregatorService:
 
         return scores
 
-    def _calc_group_scores(self, member_scores: Dict[str, float]) -> Dict[str, float]:
+    def _calc_group_scores(self, member_scores: dict[str, float]) -> dict[str, float]:
         group_scores = {}
         for group in CORE_GROUPS:
             total_weight = 0.0
@@ -144,7 +145,7 @@ class ScorecardAggregatorService:
                 group_scores[group.key] = 0.0
         return group_scores
 
-    def _calc_layer1(self, group_scores: Dict[str, float]) -> int:
+    def _calc_layer1(self, group_scores: dict[str, float]) -> int:
         """
         Calculates Layer 1 total score using group scores and their weights.
         """
@@ -155,7 +156,7 @@ class ScorecardAggregatorService:
         l1_total = sum(group_scores[g.key] * (g.weight / total_group_weight) for g in valid_groups)
         return max(0, min(100, round(l1_total)))
 
-    def _calc_layer2(self, dynamic_categories: List[Dict[str, Any]]) -> int:
+    def _calc_layer2(self, dynamic_categories: list[dict[str, Any]]) -> int:
         """
         Average of evaluated rubric levels (0-10) converted to 100 scale.
         """

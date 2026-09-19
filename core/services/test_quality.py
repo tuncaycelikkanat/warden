@@ -1,7 +1,8 @@
 import ast
 import logging
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+
 from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,7 @@ class TestQualityService:
                     # Check for assertEqual, assertRaises, self.assert*, pytest.raises
                     if isinstance(node.func, ast.Attribute):
                         attr_name = node.func.attr
-                        if attr_name.startswith('assert'):
-                            assertions += 1
-                        elif attr_name == 'raises' and getattr(node.func.value, 'id', '') == 'pytest':
+                        if attr_name.startswith('assert') or attr_name == 'raises' and getattr(node.func.value, 'id', '') == 'pytest':
                             assertions += 1
                     elif isinstance(node.func, ast.Name):
                         if node.func.id.startswith('assert'):
@@ -39,9 +38,7 @@ class TestQualityService:
                     for item in node.items:
                         if isinstance(item.context_expr, ast.Call):
                             call = item.context_expr
-                            if isinstance(call.func, ast.Attribute) and call.func.attr == 'raises' and getattr(call.func.value, 'id', '') == 'pytest':
-                                assertions += 1
-                            elif isinstance(call.func, ast.Name) and call.func.id == 'raises':
+                            if isinstance(call.func, ast.Attribute) and call.func.attr == 'raises' and getattr(call.func.value, 'id', '') == 'pytest' or isinstance(call.func, ast.Name) and call.func.id == 'raises':
                                 assertions += 1
                                 
             return assertions

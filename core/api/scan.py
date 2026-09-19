@@ -1,13 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import List, Dict, Any
-import os
 import json
+import os
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session
 
-from core.services.scanner import SecurityScannerService
 from core.infra.database import engine
 from core.models.scan import ScanResult
+from core.services.scanner import SecurityScannerService
 
 router = APIRouter(prefix="/api/v1")
 

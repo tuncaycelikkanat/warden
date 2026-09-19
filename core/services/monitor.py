@@ -1,5 +1,6 @@
 import re
-from typing import Dict, Any, List
+from typing import Any
+
 
 class AgentActionMonitor:
     def __init__(self):
@@ -13,7 +14,7 @@ class AgentActionMonitor:
             (r"mkfs", "Formatting filesystems")
         ]
         
-    def evaluate_action(self, command: str) -> Dict[str, Any]:
+    def evaluate_action(self, command: str) -> dict[str, Any]:
         """
         Evaluates a shell command against known dangerous patterns.
         Returns a dict indicating if confirmation is required and the reason.

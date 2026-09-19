@@ -1,8 +1,8 @@
-import os
 import json
 import logging
+import os
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +46,15 @@ RUBRICS = {
 
 @dataclass
 class CategoryEvidence:
-    files: List[str]
-    metrics: Dict[str, Any]
-    findings: List[str]
+    files: list[str]
+    metrics: dict[str, Any]
+    findings: list[str]
 
 @dataclass
 class RubricVerdict:
     level: int
     justification: str
-    cited_evidence: List[str]
+    cited_evidence: list[str]
 
     @classmethod
     def parse(cls, data: dict) -> 'RubricVerdict':
@@ -95,7 +95,7 @@ class RubricEvaluatorService:
             def _call_gemini():
                 client = genai.Client(api_key=api_key)
                 prompt = self._build_prompt(category_key, rubric, evidence)
-                models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.5-flash', 'gemini-3.6-flash']
+                models_to_try = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']
                 last_err = None
                 for model_name in models_to_try:
                     try:

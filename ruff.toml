@@ -1,0 +1,19 @@
+line-length = 120
+
+exclude = [
+    "tests/fixtures",
+    "tests/test_data",
+    "fixtures",
+    "test_data",
+    "dummy_*.py",
+    ".venv",
+]
+
+[lint]
+ignore = [
+    "BLE001",
+    "S110",
+    "S112",
+    "SIM102",
+    "B008",
+]
