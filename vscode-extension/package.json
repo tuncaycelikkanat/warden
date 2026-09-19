@@ -16,6 +16,10 @@
       {
         "command": "warden.scan",
         "title": "Warden: Tara"
+      },
+      {
+        "command": "warden.audit",
+        "title": "Warden: Full Audit"
       }
     ]
   },

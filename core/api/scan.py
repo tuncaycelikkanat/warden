@@ -43,3 +43,28 @@ async def scan_file(request: ScanRequest, session: Session = Depends(get_session
         "findings": findings,
         "scan_id": scan_result.id
     }
+
+class AuditRequest(BaseModel):
+    repo_path: str
+
+@router.post("/audit")
+async def run_audit(request: AuditRequest):
+    if not os.path.exists(request.repo_path):
+        raise HTTPException(status_code=404, detail="Repo not found")
+        
+    from core.services.orchestrator import AuditOrchestrator
+    from core.services.report import AuditReportService
+    
+    orch = AuditOrchestrator()
+    res = await orch.run_full_audit(request.repo_path)
+    
+    reporter = AuditReportService()
+    db_id = reporter.save_to_db(request.repo_path, res)
+    md_path = reporter.generate_markdown(request.repo_path, res)
+    
+    return {
+        "status": "success",
+        "scorecard": res["scorecard"],
+        "md_path": md_path,
+        "db_id": db_id
+    }

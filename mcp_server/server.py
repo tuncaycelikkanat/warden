@@ -54,6 +54,20 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["command"]
             }
+        ),
+        Tool(
+            name="run_full_audit",
+            description="Runs a full project audit (10+ tools) and returns the 0-100 scorecard, grade, and Markdown report path.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Absolute path to the repository to audit"
+                    }
+                },
+                "required": ["repo_path"]
+            }
         )
     ]
 
@@ -112,6 +126,37 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=json.dumps(result))]
         except Exception as e:
             return [TextContent(type="text", text=f"Error evaluating action: {str(e)}")]
+            
+    elif name == "run_full_audit":
+        repo_path = arguments.get("repo_path")
+        if not repo_path:
+            return [TextContent(type="text", text="Error: repo_path is required")]
+            
+        try:
+            from core.infra.database import create_db_and_tables
+            from core.services.orchestrator import AuditOrchestrator
+            from core.services.report import AuditReportService
+            
+            # Ensure DB is created
+            create_db_and_tables()
+            
+            orch = AuditOrchestrator()
+            res = await orch.run_full_audit(repo_path)
+            
+            reporter = AuditReportService()
+            db_id = reporter.save_to_db(repo_path, res)
+            md_path = reporter.generate_markdown(repo_path, res)
+            
+            scorecard = res.get("scorecard", {})
+            result_str = (
+                f"Audit Complete!\n"
+                f"Total Score: {scorecard.get('total_score')}/100 (Grade: {scorecard.get('grade')})\n"
+                f"Layer 1 Score: {scorecard.get('layer1_score')} | Layer 2 Score: {scorecard.get('layer2_score')}\n"
+                f"Report saved to DB (ID: {db_id}) and {md_path}"
+            )
+            return [TextContent(type="text", text=result_str)]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error running full audit: {str(e)}")]
             
     else:
         raise ValueError(f"Unknown tool: {name}")

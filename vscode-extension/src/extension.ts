@@ -105,6 +105,60 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(disposable);
 
+	const auditDisposable = vscode.commands.registerCommand('warden.audit', () => {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (!workspaceFolders) {
+			vscode.window.showErrorMessage('Lütfen bir proje klasörü açın.');
+			return;
+		}
+		const repoPath = workspaceFolders[0].uri.fsPath;
+		vscode.window.showInformationMessage(`WARDEN Full Audit başlatılıyor: ${repoPath}... Lütfen bekleyin.`);
+
+		const postData = JSON.stringify({ repo_path: repoPath });
+		const options = {
+			hostname: '127.0.0.1',
+			port: 8000,
+			path: '/api/v1/audit',
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Content-Length': Buffer.byteLength(postData)
+			}
+		};
+
+		const req = http.request(options, (res) => {
+			let data = '';
+			res.on('data', (chunk) => { data += chunk; });
+			res.on('end', () => {
+				try {
+					const result = JSON.parse(data);
+					if (result.status === 'success') {
+						const score = result.scorecard.total_score;
+						const grade = result.scorecard.grade;
+						vscode.window.showInformationMessage(`✅ WARDEN Audit Tamamlandı! Puan: ${score}/100 (Not: ${grade}). Rapor: ${result.md_path}`);
+						// Open the markdown file
+						vscode.workspace.openTextDocument(result.md_path).then(doc => {
+							vscode.window.showTextDocument(doc);
+						});
+					} else {
+						vscode.window.showErrorMessage(`Audit başarısız oldu.`);
+					}
+				} catch (e) {
+					console.error('Audit yanıtı okunamadı.', e);
+					vscode.window.showErrorMessage('Warden API Audit yanıtı okunamadı.');
+				}
+			});
+		});
+
+		req.on('error', (e) => {
+			vscode.window.showErrorMessage(`Warden sunucusuna bağlanılamadı: ${e.message}`);
+		});
+
+		req.write(postData);
+		req.end();
+	});
+	context.subscriptions.push(auditDisposable);
+
 	// 2. Otomatik Kaydetme Olayı (Adım 4.4 & 4.5)
 	const saveDisposable = vscode.workspace.onDidSaveTextDocument((document) => {
 		console.log(`Dosya kaydedildi, taranıyor: ${document.uri.fsPath}`);
