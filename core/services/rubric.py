@@ -95,15 +95,24 @@ class RubricEvaluatorService:
             def _call_gemini():
                 client = genai.Client(api_key=api_key)
                 prompt = self._build_prompt(category_key, rubric, evidence)
-                response = client.models.generate_content(
-                    model='gemini-2.5-pro',
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction="You are an expert technical auditor. Evaluate the project based STRICTLY on the provided rubric and evidence. Output ONLY valid JSON.",
-                        temperature=0.0
-                    )
-                )
-                return response.text
+                models_to_try = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash']
+                last_err = None
+                for model_name in models_to_try:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction="You are an expert technical auditor. Evaluate the project based STRICTLY on the provided rubric and evidence. Output ONLY valid JSON.",
+                                temperature=0.0
+                            )
+                        )
+                        if response and response.text:
+                            return response.text
+                    except Exception as err:
+                        last_err = err
+                        continue
+                raise last_err
                 
             raw_text = await asyncio.to_thread(_call_gemini)
             
