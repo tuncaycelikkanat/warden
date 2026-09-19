@@ -75,9 +75,10 @@ class RubricEvaluatorService:
             
         rubric = RUBRICS[category_key]
         
-        # If no Anthropic API key, mock the result
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            logger.warning(f"No ANTHROPIC_API_KEY found, mocking rubric evaluation for {category_key}")
+        # If no Gemini API key, mock the result
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            logger.warning(f"No GEMINI_API_KEY found, mocking rubric evaluation for {category_key}")
             # Mocking it to return 6
             return RubricVerdict(
                 level=6,
@@ -85,24 +86,29 @@ class RubricEvaluatorService:
                 cited_evidence=evidence.files[:2]
             )
             
-        import anthropic
-        client = anthropic.AsyncAnthropic()
-        
-        prompt = self._build_prompt(category_key, rubric, evidence)
+        from google import genai
+        from google.genai import types
         
         try:
-            response = await client.messages.create(
-                model="claude-3-5-sonnet-20240620",
-                max_tokens=1000,
-                system="You are an expert technical auditor. Evaluate the project based STRICTLY on the provided rubric and evidence. Output ONLY valid JSON.",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
+            # We must use asyncio.to_thread because the genai client is mostly synchronous in basic usage,
+            # or we can use the async client if available. Let's use standard generate_content in a thread.
+            def _call_gemini():
+                client = genai.Client(api_key=api_key)
+                prompt = self._build_prompt(category_key, rubric, evidence)
+                response = client.models.generate_content(
+                    model='gemini-2.5-pro',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction="You are an expert technical auditor. Evaluate the project based STRICTLY on the provided rubric and evidence. Output ONLY valid JSON.",
+                        temperature=0.0
+                    )
+                )
+                return response.text
+                
+            raw_text = await asyncio.to_thread(_call_gemini)
             
-            raw_json = response.content[0].text
-            # Basic cleanup if Claude adds markdown formatting
-            raw_json = raw_json.replace("```json", "").replace("```", "").strip()
+            # Basic cleanup if Gemini adds markdown formatting
+            raw_json = raw_text.replace("```json", "").replace("```", "").strip()
             data = json.loads(raw_json)
             
             verdict = RubricVerdict.parse(data)
