@@ -18,6 +18,7 @@ from core.services.rubric import CategoryEvidence, RubricEvaluatorService
 from core.services.scanner import SecurityScannerService
 from core.services.scorecard import ScorecardAggregatorService
 from core.services.secret_leak import SecretLeakScannerService
+from core.services.tech_debt import TechDebtService
 from core.services.test_quality import TestQualityService
 from core.services.testing_docs import (
     DocumentationAnalyzerService,
@@ -49,6 +50,7 @@ class AuditOrchestrator:
         self.docker = DockerReadinessService()
         self.commit = CommitHygieneService()
         self.duplication = DuplicationService()
+        self.tech_debt = TechDebtService()
 
         self.profiler = ProjectProfilerService()
         self.rubric = RubricEvaluatorService()
@@ -75,6 +77,7 @@ class AuditOrchestrator:
             self.docker.analyze(path),
             self.commit.analyze(path),
             self.duplication.analyze(path),
+            self.tech_debt.analyze(path),
         ]
 
         raw_l1: list[Any] = await asyncio.gather(*l1_tasks)
@@ -83,7 +86,7 @@ class AuditOrchestrator:
             sec_leak_res, cov_res, doc_res, res_res,
             lic_res, type_res, tq_res,
             cicd_res, docker_res, commit_res,
-            dup_res,
+            dup_res, tech_debt_res,
         ) = raw_l1
 
         layer1_data = {
@@ -100,6 +103,7 @@ class AuditOrchestrator:
             ],
             "complexity": comp_res.__dict__,
             "duplication": dup_res.__dict__,
+            "tech_debt": tech_debt_res.__dict__,
             "lint": {
                 "error_count": lint_res.error_count,
                 "issues_by_rule": lint_res.issues_by_rule,
@@ -160,6 +164,7 @@ class AuditOrchestrator:
             "coverage_isolation": cov_res.isolation_level,
             "duplication_pct": dup_res.duplication_pct,
             "duplication_measured": dup_res.measured,
+            "tech_debt_measured": tech_debt_res.measured,
         }
 
         return layer1_data, l1_summary

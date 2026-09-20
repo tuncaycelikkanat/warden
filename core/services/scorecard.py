@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from core.services.core_group_catalog import CORE_GROUPS, MEMBER_TO_GROUP
@@ -109,6 +110,56 @@ class ScorecardAggregatorService:
         score = max(0.0, 100.0 - (pct * 8.0))
         return max(0.0, min(100.0, round(score, 2)))
 
+    def _score_tech_debt(
+        self, debt: Any, complexity: Any = None
+    ) -> float:
+        if not debt:
+            return 100.0
+
+        if isinstance(debt, dict):
+            total_commits = int(debt.get("total_commits_in_window", 0) or 1)
+            churn_entries = debt.get("churn_entries", [])
+            todo_markers = debt.get("todo_markers", [])
+        else:
+            total_commits = int(getattr(debt, "total_commits_in_window", 0) or 1)
+            churn_entries = getattr(debt, "churn_entries", [])
+            todo_markers = getattr(debt, "todo_markers", [])
+
+        hotspot_penalty = 0.0
+
+        complex_files: set[str] = set()
+        if complexity:
+            outlier_blocks = complexity.get("outlier_blocks", []) if isinstance(complexity, dict) else getattr(complexity, "outlier_blocks", [])
+            for block in outlier_blocks:
+                f = block.get("file") if isinstance(block, dict) else getattr(block, "file", None)
+                if f:
+                    complex_files.add(str(f))
+                    complex_files.add(Path(str(f)).name)
+
+        for entry in churn_entries:
+            if isinstance(entry, dict):
+                age_days = int(entry.get("age_days", 0) or 0)
+                commit_count = int(entry.get("commit_count", 0) or 0)
+                entry_file = str(entry.get("file", ""))
+            else:
+                age_days = int(getattr(entry, "age_days", 0) or 0)
+                commit_count = int(getattr(entry, "commit_count", 0) or 0)
+                entry_file = str(getattr(entry, "file", ""))
+
+            if age_days < 30:
+                continue  # New active feature — exempt from hotspot penalty
+
+            churn_ratio = commit_count / total_commits
+            is_complex = entry_file in complex_files or Path(entry_file).name in complex_files
+
+            if is_complex and churn_ratio > 0.05:
+                hotspot_penalty += churn_ratio * 40.0
+
+        todo_penalty = min(10.0, len(todo_markers) * 0.2)
+
+        score = max(0.0, min(100.0, round(100.0 - hotspot_penalty - todo_penalty, 2)))
+        return score
+
     def _score_docs(self, d: dict[str, Any]) -> float:
         if not d:
             return 100.0
@@ -161,6 +212,15 @@ class ScorecardAggregatorService:
                     pass  # Unmeasured, weight will be redistributed
                 else:
                     scores["duplication_jscpd"] = self._score_duplication(dup)
+
+        if "tech_debt" in data and "tech_debt_churn" not in scores:
+            debt = data.get("tech_debt", {})
+            if isinstance(debt, dict):
+                if not debt.get("measured", True):
+                    pass  # Unmeasured, weight will be redistributed
+                else:
+                    comp = data.get("complexity", {})
+                    scores["tech_debt_churn"] = self._score_tech_debt(debt, comp)
 
         if "lint" in data and "lint_style_ruff" not in scores:
             lint = data.get("lint", {})

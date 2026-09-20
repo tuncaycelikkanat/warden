@@ -47,6 +47,15 @@ DUPLICATION_ADDITIONAL_EXCLUSIONS: list[str] = [
     r"^__init__\.py$",
 ]
 
+LOCKFILE_PATTERNS: list[str] = [
+    r".*\.lock$",
+    r".*package-lock\.json$",
+    r".*yarn\.lock$",
+    r".*pnpm-lock\.yaml$",
+    r".*uv\.lock$",
+    r".*poetry\.lock$",
+]
+
 
 def get_scan_exclusions(repo_path: Path | None = None, extra: list[str] | None = None) -> list[str]:
     """Returns the unified list of directory and file exclusions.
@@ -155,4 +164,57 @@ def is_generated_file(file_path: Path | str, repo_path: Path | None = None) -> t
             pass
 
     return False, None
+
+
+def get_generated_files_from_gitattributes(repo_path: Path | str) -> set[str]:
+    """.gitattributes'daki linguist-generated=true işaretini oku, ama tek başına
+    yeterli kanıt sayma — dosya adı deseniyle (GENERATED_FILE_PATTERNS) ÇAKIŞMIYORSA
+    yalnızca bilgilendirici olarak işaretle, otomatik hariç tutma."""
+    repo = Path(repo_path)
+    gitattributes_file = repo / ".gitattributes"
+    if not gitattributes_file.is_file():
+        return set()
+
+    trusted_generated: set[str] = set()
+    try:
+        content = gitattributes_file.read_text(encoding="utf-8", errors="ignore")
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "linguist-generated=true" in line or "linguist-generated" in line:
+                parts = line.split()
+                if parts:
+                    pattern = parts[0]
+                    # Sadece GENERATED_FILE_PATTERNS veya bilinen üretilmiş dosya uzantılarıyla örtüşüyorsa güven
+                    if any(re.search(gen_p, pattern) for gen_p in GENERATED_FILE_PATTERNS) or pattern.endswith((".min.js", ".min.css", ".pb2.py", ".g.py")):
+                        trusted_generated.add(pattern)
+    except OSError:
+        pass
+    return trusted_generated
+
+
+def is_lockfile_or_vendor(file_path: Path | str, repo_path: Path | None = None) -> bool:
+    """Checks whether a file is a package manager lockfile or vendor asset."""
+    path_obj = Path(file_path)
+    if repo_path and path_obj.is_absolute():
+        try:
+            rel_str = str(path_obj.relative_to(repo_path))
+        except ValueError:
+            rel_str = str(path_obj)
+    else:
+        rel_str = str(path_obj)
+
+    rel_str = rel_str.replace("\\", "/")
+
+    for pattern in LOCKFILE_PATTERNS:
+        if re.search(pattern, rel_str):
+            return True
+
+    # Check vendor directories
+    for ex in STANDARD_EXCLUSIONS:
+        if f"/{ex}/" in f"/{rel_str}/" or rel_str.startswith(f"{ex}/"):
+            return True
+
+    return False
 
