@@ -21,6 +21,9 @@ STANDARD_EXCLUSIONS: list[str] = [
 ]
 
 
+import re
+
+
 def get_scan_exclusions(repo_path: Path | None = None, extra: list[str] | None = None) -> list[str]:
     """Returns the unified list of directory and file exclusions.
 
@@ -30,3 +33,11 @@ def get_scan_exclusions(repo_path: Path | None = None, extra: list[str] | None =
     if extra:
         exclusions.extend(extra)
     return exclusions
+
+
+def get_scan_exclusion_pattern(repo_path: Path | None = None, extra: list[str] | None = None) -> str:
+    """Returns a regex pattern of exclusions suitable for Mypy's --exclude argument."""
+    exclusions = get_scan_exclusions(repo_path, extra=extra)
+    escaped = [re.escape(item) for item in exclusions]
+    return f"({'|'.join(escaped)})"
+
