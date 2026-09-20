@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -8,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from core.services.shared.loc_counter import count_source_lines
-from core.services.shared.scan_exclusions import get_scan_exclusions
+from core.services.shared.scan_exclusions import get_scan_exclusions, is_generated_file
 
 logger = logging.getLogger(__name__)
 
@@ -16,52 +18,176 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ComplexityResult:
     """Represents cyclomatic complexity metrics and identified high-complexity files."""
-    avg_complexity: float
-    high_complexity_files: list[dict[str, Any]]
+
+    measured: bool = True
+    avg_complexity: float = 0.0
+    rank_distribution: dict[str, int] = field(default_factory=lambda: {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0})
+    outlier_blocks: list[dict[str, Any]] = field(default_factory=list)
+    high_complexity_files: list[dict[str, Any]] = field(default_factory=list)
+    file_count: int = 0
+    generated_files_excluded: list[str] = field(default_factory=list)
+    reason: str | None = None
+    note: str | None = None
+    score: float | None = None
+
+
+RANK_THRESHOLDS: dict[str, int] = {"C": 11, "D": 21, "E": 31, "F": 41}
+RANK_PENALTY_WEIGHT: dict[str, float] = {"C": 1.0, "D": 2.5, "E": 4.0, "F": 6.0}
 
 
 class CodeComplexityService:
     """Service to measure cyclomatic complexity across Python source files using Radon."""
 
-    async def analyze(self, repo_path: Path) -> ComplexityResult:
-        """Runs radon cc to measure cyclomatic complexity."""
-        import asyncio
+    def _resolve_radon_cmd(self, repo_path: Path) -> list[str]:
+        """Resolves executable command for running radon."""
+        radon_bin = shutil.which("radon")
+        if radon_bin:
+            return [radon_bin]
 
-        def run_radon():
-            cmd = ["radon", "cc", str(repo_path), "--json", "-a", "-i", "fixtures,test_data", "-e", "*dummy_*"]
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-                return json.loads(result.stdout)
-            except Exception as e:
-                logger.error(f"Failed to run radon: {e}")
-                return {}
+        venv_radon = Path(sys.prefix) / "bin" / "radon"
+        if venv_radon.is_file() and os.access(venv_radon, os.X_OK):
+            return [str(venv_radon)]
 
-        data = await asyncio.to_thread(run_radon)
+        for venv_name in [".venv", "venv"]:
+            cand = repo_path / venv_name / "bin" / "radon"
+            if cand.is_file() and os.access(cand, os.X_OK):
+                return [str(cand)]
 
+        uv_bin = shutil.which("uv")
+        if uv_bin:
+            return [uv_bin, "run", "radon"]
+
+        import importlib.util
+
+        if importlib.util.find_spec("radon") is not None:
+            return [sys.executable, "-m", "radon"]
+
+        raise FileNotFoundError("radon not found in WARDEN's own environment")
+
+    def _run_radon(self, repo_path: Path) -> str:
+        """Executes radon subprocess with centralized exclusions and timeout."""
+        cmd_prefix = self._resolve_radon_cmd(repo_path)
+        ignore_dirs = ",".join(get_scan_exclusions(repo_path))
+        exclude_globs = "*dummy_*,*_pb2.py,*.g.py"
+
+        cmd = [
+            *cmd_prefix,
+            "cc",
+            str(repo_path),
+            "--json",
+            "-a",
+            "-i",
+            ignore_dirs,
+            "-e",
+            exclude_globs,
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+        if result.returncode not in (0,):
+            logger.warning(f"radon exited with code {result.returncode}: {result.stderr}")
+        return result.stdout
+
+    def _cc_to_rank(self, cc: int) -> str:
+        """Maps numeric cyclomatic complexity to letter rank."""
+        if cc <= 5:
+            return "A"
+        if cc <= 10:
+            return "B"
+        if cc <= 20:
+            return "C"
+        if cc <= 30:
+            return "D"
+        if cc <= 40:
+            return "E"
+        return "F"
+
+    def _build_result(self, parsed: dict[str, Any], repo_path: Path) -> ComplexityResult:
+        """Constructs ComplexityResult with rank distributions and outlier blocks."""
+        rank_distribution: dict[str, int] = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0}
+        outlier_blocks: list[dict[str, Any]] = []
+        high_complexity_files: list[dict[str, Any]] = []
+        generated_files_excluded: list[str] = []
         total_complexity = 0
-        block_count = 0
-        high_complexity_files = []
+        total_blocks = 0
+        analyzed_file_count = 0
 
-        for file_path, blocks in data.items():
+        for file_path, blocks in parsed.items():
             if file_path == "error" or not isinstance(blocks, list):
                 continue
 
-            file_complexity = sum(b.get("complexity", 0) for b in blocks if "complexity" in b)
-            file_blocks = [b for b in blocks if "complexity" in b]
+            # Check if generated file
+            is_gen, _ = is_generated_file(file_path, repo_path)
+            if is_gen:
+                generated_files_excluded.append(file_path)
+                continue
 
-            if file_blocks:
-                total_complexity += file_complexity
-                block_count += len(file_blocks)
+            analyzed_file_count += 1
+            file_complexity = 0
+            file_blocks_count = 0
 
-                if (file_complexity / len(file_blocks)) > 10:
+            for b in blocks:
+                if not isinstance(b, dict) or "complexity" not in b:
+                    continue
+                cc = int(b.get("complexity", 0))
+                rank = b.get("rank") or self._cc_to_rank(cc)
+                if rank in rank_distribution:
+                    rank_distribution[rank] += 1
+                else:
+                    rank_distribution[self._cc_to_rank(cc)] += 1
+
+                total_complexity += cc
+                total_blocks += 1
+                file_complexity += cc
+                file_blocks_count += 1
+
+                if cc >= RANK_THRESHOLDS["C"]:
+                    outlier_blocks.append({
+                        "file": file_path,
+                        "function": b.get("name", "unknown"),
+                        "line": b.get("lineno", 0),
+                        "complexity": cc,
+                        "rank": rank,
+                    })
+
+            if file_blocks_count > 0:
+                if any(b.get("complexity", 0) >= RANK_THRESHOLDS["C"] for b in blocks if isinstance(b, dict)) or (file_complexity / file_blocks_count) > 10:
                     high_complexity_files.append({"file": file_path, "complexity": file_complexity})
 
-        avg = (total_complexity / block_count) if block_count > 0 else 0.0
+        avg = round(total_complexity / total_blocks, 2) if total_blocks > 0 else 0.0
+        note = "no_analyzable_blocks" if total_blocks == 0 else None
 
         return ComplexityResult(
-            avg_complexity=round(avg, 2),
-            high_complexity_files=high_complexity_files
+            measured=True,
+            avg_complexity=avg,
+            rank_distribution=rank_distribution,
+            outlier_blocks=outlier_blocks,
+            high_complexity_files=high_complexity_files,
+            file_count=analyzed_file_count,
+            generated_files_excluded=generated_files_excluded,
+            note=note,
         )
+
+    async def analyze(self, repo_path: Path) -> ComplexityResult:
+        """Runs radon cc to measure cyclomatic complexity."""
+        try:
+            raw_output = await asyncio.to_thread(self._run_radon, repo_path)
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            logger.warning(f"radon could not be executed: {e}")
+            return ComplexityResult(measured=False, reason=f"radon_execution_failed: {e}")
+
+        try:
+            parsed = json.loads(raw_output)
+        except json.JSONDecodeError as e:
+            logger.warning(f"radon output could not be parsed: {e}")
+            return ComplexityResult(measured=False, reason="radon_json_parse_error")
+
+        return self._build_result(parsed, repo_path)
 
 
 @dataclass

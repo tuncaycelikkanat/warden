@@ -82,6 +82,20 @@ class ScorecardAggregatorService:
     def _score_complexity(self, comp: dict[str, Any]) -> float:
         if not comp:
             return 100.0
+
+        rank_dist = comp.get("rank_distribution")
+        if isinstance(rank_dist, dict) and rank_dist:
+            total_blocks = sum(rank_dist.values())
+            if total_blocks == 0:
+                return 100.0
+
+            rank_weights = {"C": 1.0, "D": 2.5, "E": 4.0, "F": 6.0}
+            penalty = sum(
+                (rank_dist.get(rank, 0) / total_blocks) * weight * 100.0
+                for rank, weight in rank_weights.items()
+            )
+            return max(0.0, min(100.0, round(100.0 - penalty, 2)))
+
         high_files_val = comp.get("high_complexity_files", [])
         high_files = len(high_files_val) if isinstance(high_files_val, (list, tuple, set)) else int(high_files_val or 0)
         avg = comp.get("avg_complexity", 0.0)
@@ -126,7 +140,12 @@ class ScorecardAggregatorService:
                 scores["test_coverage"] = max(0.0, min(100.0, round((float(cov) / 80.0) * 100.0, 1)))
 
         if "complexity" in data and "complexity_radon" not in scores:
-            scores["complexity_radon"] = self._score_complexity(data.get("complexity", {}))
+            comp = data.get("complexity", {})
+            if isinstance(comp, dict):
+                if not comp.get("measured", True):
+                    pass  # Unmeasured, weight will be redistributed
+                else:
+                    scores["complexity_radon"] = self._score_complexity(comp)
 
         if "lint" in data and "lint_style_ruff" not in scores:
             lint = data.get("lint", {})

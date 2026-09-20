@@ -134,3 +134,80 @@ async def test_detailed_issue_locations(tmp_path: Path):
     assert "sys" in issue.message.lower()
     assert issue.severity == "major"
 
+
+@pytest.mark.asyncio
+async def test_complexity_unmeasured_when_binary_missing(tmp_path: Path):
+    """When radon binary cannot be executed, service returns measured=False rather than silent 100."""
+    service = CodeComplexityService()
+    with patch.object(service, "_run_radon", side_effect=FileNotFoundError("radon not found")):
+        res = await service.analyze(tmp_path)
+        assert res.measured is False
+        assert "radon_execution_failed" in (res.reason or "")
+
+    # Scorecard should redistribute weight and omit complexity_radon
+    sc = ScorecardAggregatorService()
+    scores = sc.calculate({"complexity": {"measured": False}}, [])
+    assert "complexity_radon" not in scores.breakdown.get("member_scores", {})
+
+
+@pytest.mark.asyncio
+async def test_complexity_unmeasured_on_malformed_json(tmp_path: Path):
+    """Malformed or truncated radon output returns measured=False with distinct parse error reason."""
+    service = CodeComplexityService()
+    with patch.object(service, "_run_radon", return_value="INVALID_JSON_OUTPUT_NOT_PARSABLE{"):
+        res = await service.analyze(tmp_path)
+        assert res.measured is False
+        assert res.reason == "radon_json_parse_error"
+
+
+@pytest.mark.asyncio
+async def test_complexity_size_normalization():
+    """Projects with low outlier density score significantly higher than small repos with high outlier density."""
+    service = CodeComplexityService()
+    sc = ScorecardAggregatorService()
+
+    res_small = await service.analyze(Path("tests/fixtures/complexity/small_project_high_ratio"))
+    res_large = await service.analyze(Path("tests/fixtures/complexity/large_project_low_ratio"))
+
+    assert res_small.measured is True
+    assert res_large.measured is True
+    assert len(res_small.outlier_blocks) == 4
+    assert len(res_large.outlier_blocks) == 4
+
+    score_small = sc._score_complexity(res_small.__dict__)
+    score_large = sc._score_complexity(res_large.__dict__)
+
+    assert score_large > score_small
+    assert score_large >= 90.0
+    assert score_small <= 20.0
+
+
+@pytest.mark.asyncio
+async def test_complexity_catches_hidden_god_function():
+    """A single high-CC god function diluted by simple helpers must be caught in outlier_blocks with rank F."""
+    service = CodeComplexityService()
+    res = await service.analyze(Path("tests/fixtures/complexity/hidden_god_function"))
+
+    assert res.measured is True
+    assert len(res.outlier_blocks) == 1
+    god = res.outlier_blocks[0]
+    assert god["function"] == "god_function"
+    assert god["complexity"] >= 41
+    assert god["rank"] == "F"
+
+
+@pytest.mark.asyncio
+async def test_complexity_excludes_generated_and_migration_files():
+    """Django/Alembic migrations and @generated files are transparently excluded and reported."""
+    service = CodeComplexityService()
+    res = await service.analyze(Path("tests/fixtures/complexity/generated_migration_file"))
+
+    assert res.measured is True
+    assert len(res.generated_files_excluded) >= 2
+    assert any("migrations" in p for p in res.generated_files_excluded)
+    assert any("annotated_generated" in p for p in res.generated_files_excluded)
+    # The only analyzed file should be manual_file.py
+    assert res.file_count == 1
+    assert res.rank_distribution["F"] == 0
+    assert len(res.outlier_blocks) == 0
+
