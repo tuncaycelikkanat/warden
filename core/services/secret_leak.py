@@ -2,67 +2,67 @@
 
 import json
 import logging
+import re
 import subprocess
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from core.config.secret_scan_config import (
+    DEFAULT_SINCE_MONTHS,
+    HIGH_CONFIDENCE_MOCK_TOKENS,
+    LIVE_KEY_PREFIXES,
+    LOW_CONFIDENCE_MOCK_TOKENS,
+    TEST_DOC_DIRS,
+    TEST_FILE_EXTENSIONS,
+    TEST_FILE_NAMES,
+    UNIVERSAL_PLACEHOLDERS,
+)
 
 logger = logging.getLogger(__name__)
 
-TEST_DOC_DIRS = {
-    "test", "tests", "testing", "fixtures", "fixture",
-    "mocks", "mock", "__tests__", "spec", "specs",
-    "sample", "samples", "example", "examples", "docs", "doc",
-    "test_data", "testdata",
-}
 
-TEST_FILE_EXTENSIONS = (
-    "_test.py", ".test.ts", ".test.js", ".spec.ts", ".spec.js",
-    ".test.jsx", ".test.tsx", ".spec.jsx", ".spec.tsx",
-)
+def mask_secret(raw_value: str) -> str:
+    """Masks a secret string so raw credentials are never persisted or displayed."""
+    if not raw_value:
+        return ""
+    if len(raw_value) <= 8:
+        return "*" * len(raw_value)
+    return f"{raw_value[:4]}{'*' * (len(raw_value) - 8)}{raw_value[-4:]}"
 
-TEST_FILE_NAMES = {
-    "conftest.py", "mock.py", "fixture.py", "fixtures.py", "test.py", "tests.py",
-}
 
-UNIVERSAL_DUMMY_MARKERS = (
-    "placeholder",
-    "dummy_key",
-    "dummy_secret",
-    "dummy_token",
-    "fake_secret",
-    "fake_key",
-    "your_api_key",
-    "your-api-key",
-    "your_secret",
-    "replace_me",
-    "change_me",
-    "insert_here",
-    "my_secret_key",
-    "sample_key",
-    "example_key",
-    "example_token",
-    "sk_test_",
-    "pk_test_",
-    "sk-test-",
-    "pk-test-",
-)
+def _is_in_test_context(file_path: str) -> bool:
+    """Checks if file path belongs to test, fixture, or mock directories."""
+    path_obj = Path(file_path.lower())
+    parts = set(path_obj.parts)
+    return (
+        bool(parts & TEST_DOC_DIRS)
+        or path_obj.name.startswith("test_")
+        or path_obj.name.endswith(TEST_FILE_EXTENSIONS)
+        or path_obj.name in TEST_FILE_NAMES
+    )
 
-TEST_CONTEXT_MARKERS = (
-    "test",
-    "dummy",
-    "mock",
-    "fake",
-    "sample",
-    "example",
-    "placeholder",
-    "fixture",
-    "stub",
-    "123456",
-    "abcdef",
-    "000000",
-    "xxxxxx",
-    "qwerty",
-)
+
+def _contains_word(text: str, tokens: set[str]) -> bool:
+    """Checks if text contains any token as a delimited word, camelCase segment, or boundary."""
+    if not text:
+        return False
+    lowered = text.lower()
+    for t in tokens:
+        delim_pattern = rf"(?:^|[_\-./\s0-9]){re.escape(t)}(?:[_\-./\s0-9]|$)"
+        if re.search(delim_pattern, lowered):
+            return True
+        if t in HIGH_CONFIDENCE_MOCK_TOKENS:
+            if t in lowered:
+                return True
+        if t == "test":
+            if re.search(r"(?:^|[_\-0-9/]|[a-z])(?:test|Test|TEST)(?=[_\-0-9A-Z/]|$)", text):
+                return True
+        if t in {"123456", "deadbeef", "000000", "xxxx"}:
+            if t in lowered:
+                return True
+    return False
+
 
 
 @dataclass
@@ -75,11 +75,17 @@ class LeakedSecret:
     author: str
     date: str
     message: str
-    secret: str
+    masked_secret: str
+
+    @property
+    def secret(self) -> str:
+        """Alias returning the masked secret for backwards compatibility."""
+        return self.masked_secret
 
     @classmethod
     def from_gitleaks(cls, data: dict) -> 'LeakedSecret':
-        """Constructs a LeakedSecret instance from Gitleaks JSON record."""
+        """Constructs a LeakedSecret instance from Gitleaks JSON record with masked secret."""
+        raw_sec = str(data.get("Secret", "") or "")
         return cls(
             rule_id=data.get("RuleID", ""),
             file=data.get("File", ""),
@@ -88,8 +94,16 @@ class LeakedSecret:
             author=data.get("Author", ""),
             date=data.get("Date", ""),
             message=data.get("Message", ""),
-            secret=data.get("Secret", "")
+            masked_secret=mask_secret(raw_sec),
         )
+
+
+@dataclass
+class IgnoreFileAudit:
+    """Audit metrics for repository .gitleaksignore file."""
+    exists: bool = False
+    total_entries: int = 0
+    undocumented_entries: int = 0
 
 
 @dataclass
@@ -97,58 +111,120 @@ class SecretLeakResult:
     """Encapsulates all identified leaked secret findings."""
     leaked_secrets: list[LeakedSecret]
     ignored_test_secrets: list[LeakedSecret] = field(default_factory=list)
+    scan_scope: str = "last_6_months"
+    ignore_audit: IgnoreFileAudit = field(default_factory=IgnoreFileAudit)
 
 
 class SecretLeakScannerService:
-    """Service to scan entire Git history and tree for secret keys using Gitleaks."""
+    """Service to scan Git history and tree for secret keys using Gitleaks."""
 
     @staticmethod
     def is_false_positive(finding: dict) -> bool:
-        """Determines if a Gitleaks finding is a dummy, mock, test fixture, or placeholder."""
-        secret = str(finding.get("Secret", "")).strip()
-        file_path = str(finding.get("File", "")).strip()
-        match_str = str(finding.get("Match", "")).strip()
+        """
+        Determines if a Gitleaks finding is a dummy, mock, test fixture, or placeholder.
+        Uses multi-signal AND logic to avoid suppressing real leaks containing common substrings.
+        """
+        secret_value = str(finding.get("Secret", "") or "").strip()
+        file_path = str(finding.get("File", "") or "").strip()
+        match_str = str(finding.get("Match", "") or "").strip()
+        variable_name = str(finding.get("variable_name", "") or "").strip()
 
-        secret_lower = secret.lower()
-        file_lower = file_path.lower()
-        match_lower = match_str.lower()
+        # 1. Live key prefix always takes absolute precedence — NEVER ignore
+        if secret_value.startswith(LIVE_KEY_PREFIXES) or "BEGIN" in secret_value:
+            return False
 
-        # 1. Universal dummy indicators (applies to all files across the repo)
-        if any(marker in secret_lower for marker in UNIVERSAL_DUMMY_MARKERS):
+        # 2. Universal placeholders anywhere in the repository
+        secret_lower = secret_value.lower()
+        if any(marker in secret_lower for marker in UNIVERSAL_PLACEHOLDERS):
             return True
 
-        # 2. Check if file resides in test, fixture, mock, sample, or documentation paths
-        path_obj = Path(file_lower)
-        parts = set(path_obj.parts)
-        is_test_or_doc = (
-            bool(parts & TEST_DOC_DIRS)
-            or path_obj.name.startswith("test_")
-            or path_obj.name.endswith(TEST_FILE_EXTENSIONS)
-            or path_obj.name in TEST_FILE_NAMES
-        )
+        # 3. Test/fixture context is a mandatory prerequisite
+        if not _is_in_test_context(file_path):
+            return False
 
-        if is_test_or_doc:
-            # If the secret explicitly claims to be a live secret (e.g. sk_live_...), do not auto-ignore
-            if secret_lower.startswith(("sk_live_", "pk_live_", "ak_live_")):
-                return False
+        # Extract variable name or declaration context (LHS of assignment)
+        var_context = variable_name
+        if not var_context:
+            if "=" in match_str:
+                var_context = match_str.split("=")[0].strip()
+            elif ":" in match_str:
+                var_context = match_str.split(":")[0].strip()
+            else:
+                var_context = ""
 
-            # In test/fixture context, filter out findings with dummy/test markers in secret or match line
-            if any(marker in secret_lower for marker in TEST_CONTEXT_MARKERS):
-                return True
-            if any(marker in match_lower for marker in TEST_CONTEXT_MARKERS):
-                return True
+        # 4. High-confidence token: sufficient on its own in test context
+        if _contains_word(secret_value, HIGH_CONFIDENCE_MOCK_TOKENS):
+            return True
+        if var_context and _contains_word(var_context, HIGH_CONFIDENCE_MOCK_TOKENS):
+            return True
 
-        return False
+        # 5. Low-confidence token: NOT sufficient on its own.
+        # Only accepted if variable name ALSO has a mock/test signal (two independent signals).
+        value_has_low_signal = _contains_word(secret_value, LOW_CONFIDENCE_MOCK_TOKENS)
+        all_tokens = HIGH_CONFIDENCE_MOCK_TOKENS | LOW_CONFIDENCE_MOCK_TOKENS
+        var_has_signal = bool(var_context and _contains_word(var_context, all_tokens))
 
-    async def scan_history(self, repo_path: Path) -> SecretLeakResult:
-        """Runs gitleaks to detect hardcoded secrets in the entire Git history."""
+        return bool(value_has_low_signal and var_has_signal)
+
+
+
+    def check_ignore_file_hygiene(self, repo_path: Path) -> IgnoreFileAudit:
+        """Audits .gitleaksignore file to ensure suppressions include rationale."""
+        ignore_path = repo_path / ".gitleaksignore"
+        if not ignore_path.exists():
+            return IgnoreFileAudit(exists=False, total_entries=0, undocumented_entries=0)
+
+        content = ignore_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        entries = 0
+        undocumented = 0
+        in_comment_block = False
+
+        for line in lines:
+            trimmed = line.strip()
+            if not trimmed:
+                in_comment_block = False
+                continue
+            if trimmed.startswith("#"):
+                in_comment_block = True
+                continue
+            entries += 1
+            has_inline = "#" in line
+            if not (has_inline or in_comment_block):
+                undocumented += 1
+
+        return IgnoreFileAudit(exists=True, total_entries=entries, undocumented_entries=undocumented)
+
+
+    async def scan_history(
+        self,
+        repo_path: Path,
+        full_history: bool = False,
+        since_months: int = DEFAULT_SINCE_MONTHS,
+    ) -> SecretLeakResult:
+        """Runs gitleaks to detect hardcoded secrets across git history or recent window."""
         import asyncio
-        
-        def run_gitleaks():
-            cmd = ["gitleaks", "detect", "--source", str(repo_path), "--report-format", "json", "--report-path", "/dev/stdout", "--exit-code", "0"]
+
+        ignore_audit = self.check_ignore_file_hygiene(repo_path)
+        scan_scope = "full_history" if full_history else f"last_{since_months}_months"
+
+        def run_gitleaks() -> list[dict]:
+            cmd = [
+                "gitleaks", "detect",
+                "--source", str(repo_path),
+                "--report-format", "json",
+                "--report-path", "/dev/stdout",
+                "--exit-code", "0",
+            ]
+            if not full_history:
+                since_date = (datetime.now(UTC) - timedelta(days=30 * since_months)).strftime("%Y-%m-%d")
+                cmd.extend(["--log-opts", f"--since={since_date}"])
+
+
             ignore_file = repo_path / ".gitleaksignore"
             if ignore_file.exists():
                 cmd.extend(["--gitleaks-ignore-path", str(ignore_file)])
+
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                 if not result.stdout.strip():
@@ -175,5 +251,9 @@ class SecretLeakScannerService:
                 f"from security penalty."
             )
 
-        return SecretLeakResult(leaked_secrets=leaks, ignored_test_secrets=ignored)
-
+        return SecretLeakResult(
+            leaked_secrets=leaks,
+            ignored_test_secrets=ignored,
+            scan_scope=scan_scope,
+            ignore_audit=ignore_audit,
+        )

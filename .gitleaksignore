@@ -1,3 +1,24 @@
+# WARDEN Gitleaks Ignore Rules
+# All rules must contain rationale comments for audit hygiene
+
+# Test fixture for scanner unit testing
 b069d74656acba3d897cedc5af7b5e282c0565a3:tests/test_data/audit_test/vuln2.py:generic-api-key:2
+
+# Test fixtures for dummy unit tests
 4f5cbfc7ea17bc65e3d1e7a64b4836c7ece4bb64:dummy_test.py:stripe-access-token:11
 4f5cbfc7ea17bc65e3d1e7a64b4836c7ece4bb64:dummy_test.py:aws-access-token:12
+
+# Unit test fixtures in tests/test_secret_leak.py (testing secret leak scanner mock filters)
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:aws-access-token:57
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:aws-access-token:127
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:aws-access-token:128
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:aws-access-token:157
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:generic-api-key:19
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:generic-api-key:26
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:generic-api-key:87
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:generic-api-key:88
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:generic-api-key:151
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:117
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:118
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:137
+7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:138
