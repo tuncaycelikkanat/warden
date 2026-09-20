@@ -1,3 +1,5 @@
+"""Test suite quality and assertion density analyzer using AST."""
+
 import ast
 import logging
 from dataclasses import dataclass
@@ -7,15 +9,23 @@ from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TestQualityResult:
+    """Represents test quality metrics including assertion counts and empty test ratios."""
+    __test__ = False
     score: float
     total_tests: int
     fake_tests: int
     fake_test_ratio: float
 
+
 class TestQualityService:
+    """Service to evaluate test quality and identify assertion-free tests."""
+    __test__ = False
+
     async def analyze(self, repo_path: Path) -> TestQualityResult:
+        """Analyzes test files using AST to verify assertion presence."""
         import asyncio
         
         def count_assertions_in_func(func_node: ast.FunctionDef) -> int:

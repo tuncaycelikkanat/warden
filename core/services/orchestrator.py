@@ -87,7 +87,9 @@ class AuditOrchestrator:
             "dependencies": [
                 {
                     "name": d.name,
+                    "version": d.version,
                     "status": d.status,
+                    "note": d.note,
                     "known_vulnerabilities": [v.__dict__ for v in d.known_vulnerabilities],
                 }
                 for d in dep_res.entries
@@ -96,6 +98,7 @@ class AuditOrchestrator:
             "lint": lint_res.__dict__,
             "leaks": [s.__dict__ for s in sec_leak_res.leaked_secrets],
             "coverage": cov_res.coverage_pct,
+            "coverage_meta": cov_res.__dict__,
             "docs": doc_res.__dict__,
             "resilience": [f.__dict__ for f in res_res.findings],
             "license_compliance": lic_res.score,
@@ -112,6 +115,11 @@ class AuditOrchestrator:
             "cicd_score": cicd_res.score,
             "tq_score": tq_res.score,
             "type_score": type_res.score,
+            "unpinned_dependencies": len(dep_res.unpinned_packages),
+            "skipped_dependency_lines": len(dep_res.skipped_lines),
+            "coverage_pct": cov_res.coverage_pct,
+            "coverage_reason": cov_res.reason,
+            "coverage_isolation": cov_res.isolation_level,
         }
 
         return layer1_data, l1_summary
