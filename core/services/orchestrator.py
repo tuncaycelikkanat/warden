@@ -95,7 +95,19 @@ class AuditOrchestrator:
                 for d in dep_res.entries
             ],
             "complexity": comp_res.__dict__,
-            "lint": lint_res.__dict__,
+            "lint": {
+                "error_count": lint_res.error_count,
+                "issues_by_rule": lint_res.issues_by_rule,
+                "score": lint_res.score,
+                "measured": lint_res.measured,
+                "reason": lint_res.reason,
+                "project_scoped_count": lint_res.project_scoped_count,
+                "baseline_count": lint_res.baseline_count,
+                "total_loc": lint_res.total_loc,
+                "density_per_kloc": lint_res.density_per_kloc,
+                "weighted_density": lint_res.weighted_density,
+                "issues": [issue.__dict__ for issue in lint_res.issues],
+            },
             "leaks": [s.__dict__ for s in sec_leak_res.leaked_secrets],
             "coverage": cov_res.coverage_pct,
             "coverage_meta": cov_res.__dict__,
@@ -118,6 +130,8 @@ class AuditOrchestrator:
 
         l1_summary = {
             "lint_errors": lint_res.error_count,
+            "lint_score": lint_res.score,
+            "lint_density": lint_res.density_per_kloc,
             "docker_score": docker_res.score,
             "cicd_score": cicd_res.score,
             "tq_score": tq_res.score,
