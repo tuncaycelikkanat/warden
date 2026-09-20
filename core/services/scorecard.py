@@ -102,6 +102,13 @@ class ScorecardAggregatorService:
         comp_score = 100.0 - (high_files * 25.0) - (max(0.0, avg - 3.0) * 10.0)
         return max(0.0, min(100.0, round(comp_score, 2)))
 
+    def _score_duplication(self, dup: dict[str, Any]) -> float:
+        if not dup:
+            return 100.0
+        pct = float(dup.get("duplication_pct", 0.0) or 0.0)
+        score = max(0.0, 100.0 - (pct * 8.0))
+        return max(0.0, min(100.0, round(score, 2)))
+
     def _score_docs(self, d: dict[str, Any]) -> float:
         if not d:
             return 100.0
@@ -146,6 +153,14 @@ class ScorecardAggregatorService:
                     pass  # Unmeasured, weight will be redistributed
                 else:
                     scores["complexity_radon"] = self._score_complexity(comp)
+
+        if "duplication" in data and "duplication_jscpd" not in scores:
+            dup = data.get("duplication", {})
+            if isinstance(dup, dict):
+                if not dup.get("measured", True):
+                    pass  # Unmeasured, weight will be redistributed
+                else:
+                    scores["duplication_jscpd"] = self._score_duplication(dup)
 
         if "lint" in data and "lint_style_ruff" not in scores:
             lint = data.get("lint", {})

@@ -10,6 +10,7 @@ from core.services.code_quality import CodeComplexityService, LintStyleService
 from core.services.commit_hygiene import CommitHygieneService
 from core.services.dependency_health import DependencyHealthService
 from core.services.docker_readiness import DockerReadinessService
+from core.services.duplication import DuplicationService
 from core.services.license_compliance import LicenseComplianceService
 from core.services.profiler import ProfileResult, ProjectProfilerService
 from core.services.resilience import ResilienceAnalyzerService
@@ -47,6 +48,7 @@ class AuditOrchestrator:
         self.cicd = CiCdPresenceService()
         self.docker = DockerReadinessService()
         self.commit = CommitHygieneService()
+        self.duplication = DuplicationService()
 
         self.profiler = ProjectProfilerService()
         self.rubric = RubricEvaluatorService()
@@ -55,7 +57,7 @@ class AuditOrchestrator:
     async def _run_l1_scanners(
         self, path: Path, files: list[Path], full_history: bool = False
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Executes all 14 Layer 1 deterministic scanners concurrently."""
+        """Executes all 15 Layer 1 deterministic scanners concurrently."""
         l1_tasks = [
             self.security.scan_files(files),
             self.dependencies.check_manifest(path),
@@ -72,6 +74,7 @@ class AuditOrchestrator:
             self.cicd.analyze(path),
             self.docker.analyze(path),
             self.commit.analyze(path),
+            self.duplication.analyze(path),
         ]
 
         raw_l1: list[Any] = await asyncio.gather(*l1_tasks)
@@ -80,6 +83,7 @@ class AuditOrchestrator:
             sec_leak_res, cov_res, doc_res, res_res,
             lic_res, type_res, tq_res,
             cicd_res, docker_res, commit_res,
+            dup_res,
         ) = raw_l1
 
         layer1_data = {
@@ -95,6 +99,7 @@ class AuditOrchestrator:
                 for d in dep_res.entries
             ],
             "complexity": comp_res.__dict__,
+            "duplication": dup_res.__dict__,
             "lint": {
                 "error_count": lint_res.error_count,
                 "issues_by_rule": lint_res.issues_by_rule,
@@ -153,6 +158,8 @@ class AuditOrchestrator:
             "coverage_pct": cov_res.coverage_pct,
             "coverage_reason": cov_res.reason,
             "coverage_isolation": cov_res.isolation_level,
+            "duplication_pct": dup_res.duplication_pct,
+            "duplication_measured": dup_res.measured,
         }
 
         return layer1_data, l1_summary

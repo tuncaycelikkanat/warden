@@ -168,7 +168,7 @@ class AuditReportService:
             "lint_style_ruff": "PEP 8 kod formatı ve statik linter kuralları (0 hata)",
             "type_safety": "Mypy statik tip güvenliği ve anotasyon denetimi",
             "complexity_radon": "Siklomatik karmaşıklık yoğunluğu ve yüksek karmaşıklıktaki dosyalar",
-            "duplication_jscpd": "Kod tekrarı ve kopya blok analizi (Faz B)",
+            "duplication_jscpd": "Kod tekrarı ve kopya blok analizi (jscpd)",
             "tech_debt_churn": "Git commit churn ve dosya değişim frekansı (Faz B)",
             "resilience_ast": "Çıplak except / broad exception ve kaynak yönetim kontrolü",
             "documentation": "Interrogate docstring kapsama oranı (%89.3) ve README yapısı",
@@ -192,7 +192,7 @@ class AuditReportService:
                 pm = prev_members.get(m.key) if has_prev else None
                 desc = member_descriptions.get(m.key, "")
                 if cm is None:
-                    status_lbl = "⚪ Faz B" if m.key in ("duplication_jscpd", "tech_debt_churn") else "⚪ Ölçülemedi"
+                    status_lbl = "⚪ Faz B" if m.key == "tech_debt_churn" else "⚪ Ölçülemedi"
                     pm_str = f"{pm:.1f}" if pm is not None else "—"
                     md.append(f"| ├─ `{m.label}` | %{m.weight*100:.1f} | {pm_str} | — | — | {status_lbl} | {desc} |")
                 else:

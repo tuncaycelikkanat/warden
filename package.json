@@ -1,0 +1,26 @@
+{
+  "name": "warden",
+  "version": "1.0.0",
+  "description": "WARDEN, yapay zeka destekli modern yazılım geliştirme (\"vibe coding\") çağında güvenlik açıklarını, tedarik zinciri zafiyetlerini, kod kokularını ve mimari disiplini güvence altına alan çok katmanlı bir denetim ve kalite güvence (QA) sistemidir.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tuncaycelikkanat/warden.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tuncaycelikkanat/warden/issues"
+  },
+  "homepage": "https://github.com/tuncaycelikkanat/warden#readme",
+  "devDependencies": {
+    "jscpd": "^3.5.10"
+  }
+}

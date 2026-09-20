@@ -1,0 +1,5 @@
+{
+  "minTokens": 1000,
+  "minLines": 100,
+  "threshold": 100
+}
