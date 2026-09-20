@@ -1,3 +1,5 @@
+"""Security scanner service utilizing Semgrep rules for SAST code analysis."""
+
 import json
 import logging
 import subprocess
@@ -6,9 +8,26 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityScannerService:
-    def __init__(self, rule_dir: str = "core/rules/vibe_coding"):
-        self.rule_dir = rule_dir
+    """Performs static application security testing using Semgrep and custom rules."""
+
+    def __init__(self, rule_dirs: list[str] | str | None = None) -> None:
+        """Initializes scanner with custom Semgrep rule directory path(s)."""
+        base_rules_dir = Path(__file__).resolve().parent.parent / "rules"
+        if rule_dirs is None:
+            vibe_dir = str(base_rules_dir / "vibe_coding")
+            sec_dir = str(base_rules_dir / "security_core")
+            self.rule_dirs = [vibe_dir, sec_dir] if Path(vibe_dir).exists() else [str(base_rules_dir)]
+        elif isinstance(rule_dirs, str):
+            self.rule_dirs = [rule_dirs]
+        else:
+            self.rule_dirs = rule_dirs
+
+    @property
+    def rule_dir(self) -> str:
+        """Backwards compatibility for single rule dir accessor."""
+        return self.rule_dirs[0] if self.rule_dirs else "core/rules"
 
     def scan_file(self, file_path: str) -> list[dict[str, Any]]:
         """
@@ -18,12 +37,11 @@ class SecurityScannerService:
         if not Path(file_path).exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        command = [
-            "semgrep",
-            "--config", self.rule_dir,
-            "--json",
-            file_path
-        ]
+        command = ["semgrep"]
+        for rd in self.rule_dirs:
+            command.extend(["--config", rd])
+        command.extend(["--json", file_path])
+
         
         try:
             # Semgrep returns exit code 1 if it finds issues, so we don't use check=True

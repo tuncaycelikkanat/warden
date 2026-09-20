@@ -1,0 +1,24 @@
+rules:
+  - id: vibe-cors-wildcard-with-credentials
+    severity: ERROR
+    languages: [python]
+    message: "CORS wildcard (*) + allow_credentials=True kombinasyonu — tarayıcı güvenlik modelini geçersiz kılan bilinen bir açık."
+    patterns:
+      - pattern-either:
+          - pattern: $APP.add_middleware(..., CORSMiddleware, ..., allow_origins=[..., "*", ...], ..., allow_credentials=True, ...)
+          - pattern: CORSMiddleware(..., allow_origins=[..., "*", ...], ..., allow_credentials=True, ...)
+          - pattern: CORS(..., origins=[..., "*", ...], ..., supports_credentials=True, ...)
+
+  - id: vibe-cors-wildcard-only
+    severity: WARNING
+    languages: [python]
+    message: "CORS tüm origin'lere açık (*) — kasıtlı mı, kontrol edin."
+    patterns:
+      - pattern-either:
+          - pattern: $APP.add_middleware(..., CORSMiddleware, ..., allow_origins=[..., "*", ...], ...)
+          - pattern: CORSMiddleware(..., allow_origins=[..., "*", ...], ...)
+          - pattern: CORS(..., origins=[..., "*", ...], ...)
+      - pattern-not: $APP.add_middleware(..., CORSMiddleware, ..., allow_credentials=True, ...)
+      - pattern-not: CORSMiddleware(..., allow_credentials=True, ...)
+      - pattern-not: CORS(..., supports_credentials=True, ...)
+

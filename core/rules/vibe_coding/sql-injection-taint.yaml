@@ -1,0 +1,47 @@
+rules:
+  - id: sql-injection-taint
+    mode: taint
+    severity: ERROR
+    message: >
+      Kullanıcı girdisi, parametreli sorgu kullanılmadan doğrudan
+      SQL execute() çağrısına ulaşıyor.
+    languages: [python]
+    pattern-sources:
+      # 1) Framework girdi noktaları
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+      - pattern: request.json(...)
+      - pattern: request.query_params[...]
+      - pattern: await request.json()
+      # 2) Route fonksiyon parametreleri
+      - patterns:
+          - pattern-inside: |
+              @$APP.$METHOD(...)
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - pattern: $PARAM
+          - focus-metavariable: $PARAM
+      # 3) Genel fonksiyon parametreleri
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - pattern: $PARAM
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      # YALNIZCA tek argümanlı execute() çağrısı (parametreli sorgular 2 argümanlıdır ve eşleşmez)
+      - pattern: $CURSOR.execute($QUERY)
+      - pattern: $SESSION.execute($QUERY)
+      - pattern: $DB.execute($QUERY)
+      - pattern: sqlite3.connect(...).execute($QUERY)
+    pattern-sanitizers:
+      # Savunma amaçlı açık sanitizer tanımları
+      - pattern: $CURSOR.execute($QUERY, $PARAMS)
+      - pattern: $SESSION.execute($QUERY, $PARAMS)
+      - pattern: $DB.execute($QUERY, $PARAMS)
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/*_test.py"
+        - "**/conftest.py"
+

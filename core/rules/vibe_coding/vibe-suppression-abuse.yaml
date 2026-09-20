@@ -1,0 +1,25 @@
+rules:
+  - id: vibe-bare-nosemgrep-suppression
+    severity: WARNING
+    languages: [python]
+    message: >
+      Gerekçesiz '# nosemgrep' bastırması — güvenlik bulgusu çözülmek yerine
+      sessizleştirilmiş olabilir. Gerekçe eklemek için '# nosemgrep: <sebep>' kullanın.
+    pattern-regex: '#\s*nosemgrep\s*$'
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/*_test.py"
+        - "**/conftest.py"
+
+  - id: vibe-bare-noqa-security-suppression
+    severity: WARNING
+    languages: [python]
+    message: "Gerekçesiz '# noqa' bastırması (güvenlik kuralı kodu ile) — gerekçe eklemeden bastırılmış."
+    pattern-regex: '#\s*noqa(?::\s*S\d+)?\s*$'
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/*_test.py"
+        - "**/conftest.py"
+

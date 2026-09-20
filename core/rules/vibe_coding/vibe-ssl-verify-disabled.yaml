@@ -1,0 +1,23 @@
+rules:
+  - id: vibe-ssl-verify-disabled
+    severity: ERROR
+    languages: [python]
+    message: "SSL doğrulaması devre dışı bırakılmış — AI'ların 'hızlı çözüm' olarak sıkça önerdiği bir güvenlik açığı."
+    patterns:
+      - pattern-either:
+          - pattern: requests.get(..., verify=False, ...)
+          - pattern: requests.post(..., verify=False, ...)
+          - pattern: requests.put(..., verify=False, ...)
+          - pattern: requests.delete(..., verify=False, ...)
+          - pattern: requests.request(..., verify=False, ...)
+          - pattern: httpx.get(..., verify=False, ...)
+          - pattern: httpx.post(..., verify=False, ...)
+          - pattern: httpx.Client(..., verify=False, ...)
+          - pattern: httpx.AsyncClient(..., verify=False, ...)
+          - pattern: urllib3.disable_warnings(...)
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/*_test.py"
+        - "**/conftest.py"
+

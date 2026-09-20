@@ -14,7 +14,9 @@ import requests
 def get_user(user_input):
     try:
         q = f"SELECT * FROM users WHERE id = {user_input}"
-        requests.get("http://api.internal/log?q=" + q)
+        conn = sqlite3.connect("users.db")
+        conn.execute(q)
+        requests.get("http://api.internal/log?q=" + q, verify=False)
         return q
     except:
         pass

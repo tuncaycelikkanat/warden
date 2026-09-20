@@ -1,0 +1,19 @@
+rules:
+  - id: unsafe-deserialization
+    severity: ERROR
+    languages: [python]
+    message: "Güvensiz deserialization — kaynağı güvenilmeyen veri keyfi kod çalıştırmaya yol açabilir."
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: pickle.load(...)
+          - pattern: _pickle.loads(...)
+          - pattern: _pickle.load(...)
+          - pattern: yaml.load(..., Loader=yaml.Loader)
+          - pattern: yaml.load(..., Loader=yaml.CLoader)
+          - pattern: yaml.unsafe_load(...)
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/conftest.py"

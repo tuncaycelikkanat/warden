@@ -1,0 +1,18 @@
+rules:
+  - id: vibe-debug-mode-enabled
+    severity: ERROR
+    languages: [python]
+    message: "debug=True — production'a sızması durumunda stack trace/kaynak kod ifşası riski taşır."
+    patterns:
+      - pattern-either:
+          - pattern: $APP.run(..., debug=True, ...)
+          - pattern: DEBUG = True
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/*_test.py"
+        - "**/dev_*.py"
+        - "**/*_dev.py"
+        - "**/local_settings.py"
+        - "**/conftest.py"
