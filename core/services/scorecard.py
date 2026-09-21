@@ -297,10 +297,10 @@ class ScorecardAggregatorService:
         for k, v in data.items():
             if k in MEMBER_TO_GROUP and k not in scores:
                 if isinstance(v, dict) and "score" in v:
-                    if v.get("measured", True) and v["score"] is not None:
+                    if v.get("measured", True) and v.get("applicable", True) and v["score"] is not None:
                         scores[k] = float(v["score"])
                 elif hasattr(v, "score") and v.score is not None:
-                    if getattr(v, "measured", True):
+                    if getattr(v, "measured", True) and getattr(v, "applicable", True):
                         scores[k] = float(v.score)
 
         self._extract_sec_derived(data, scores)
