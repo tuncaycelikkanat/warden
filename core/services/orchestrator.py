@@ -162,7 +162,16 @@ class AuditOrchestrator:
                 "has_docker_compose": docker_res.has_docker_compose,
                 "dockerfile_path": docker_res.dockerfile_path,
             },
-            "commit_hygiene": commit_res.score,
+            "commit_hygiene": commit_res.score if commit_res.measured else None,
+            "commit_hygiene_meta": {
+                "score": commit_res.score,
+                "measured": commit_res.measured,
+                "reason": commit_res.reason,
+                "total_commits": commit_res.total_commits,
+                "bad_commits": commit_res.bad_commits,
+                "bad_ratio": commit_res.bad_ratio,
+                "avg_length": commit_res.avg_length,
+            },
         }
 
         l1_summary = {
@@ -170,6 +179,7 @@ class AuditOrchestrator:
             "lint_score": lint_res.score,
             "lint_density": lint_res.density_per_kloc,
             "docker_score": docker_res.score if (docker_res.applicable and docker_res.measured) else None,
+            "commit_score": commit_res.score if commit_res.measured else None,
             "cicd_score": cicd_res.score,
             "tq_score": tq_res.score,
             "fake_tests": tq_res.fake_tests,
