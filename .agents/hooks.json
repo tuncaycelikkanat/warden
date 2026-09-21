@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".venv/bin/python scripts/hook_monitor.py",
+            "command": "../.venv/bin/python ../scripts/hook_monitor.py",
             "timeout": 5
           }
         ]

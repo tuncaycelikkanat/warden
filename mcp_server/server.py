@@ -1,17 +1,22 @@
+"""Model Context Protocol (MCP) server exposing WARDEN audit and scanning tools."""
+
 import asyncio
-import sys
+from typing import Any
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
-from core.services.scanner import SecurityScannerService
-from core.services.package import PackageCheckerService
 from core.services.monitor import AgentActionMonitor
+from core.services.package import PackageCheckerService
+from core.services.scanner import SecurityScannerService
 
 app = Server("warden_mcp")
 
+
 @app.list_tools()
 async def list_tools() -> list[Tool]:
+    """Lists all available WARDEN MCP tools."""
     return [
         Tool(
             name="security_scan",
@@ -72,7 +77,8 @@ async def list_tools() -> list[Tool]:
     ]
 
 @app.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+    """Dispatches tool execution for requested WARDEN MCP tool."""
     if name == "security_scan":
         file_path = arguments.get("file_path")
         if not file_path:
@@ -94,7 +100,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 
             return [TextContent(type="text", text=result_str)]
         except Exception as e:
-            return [TextContent(type="text", text=f"Error scanning file: {str(e)}")]
+            return [TextContent(type="text", text=f"Error scanning file: {e!s}")]
             
     elif name == "check_package":
         package_name = arguments.get("package_name")
@@ -111,7 +117,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result_str = f"Package: {package_name}\nRisk Level: {risk_level}\nDetails:\n- {details}"
             return [TextContent(type="text", text=result_str)]
         except Exception as e:
-            return [TextContent(type="text", text=f"Error checking package: {str(e)}")]
+            return [TextContent(type="text", text=f"Error checking package: {e!s}")]
             
     elif name == "evaluate_agent_action":
         command = arguments.get("command")
@@ -125,7 +131,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             import json
             return [TextContent(type="text", text=json.dumps(result))]
         except Exception as e:
-            return [TextContent(type="text", text=f"Error evaluating action: {str(e)}")]
+            return [TextContent(type="text", text=f"Error evaluating action: {e!s}")]
             
     elif name == "run_full_audit":
         repo_path = arguments.get("repo_path")
@@ -156,13 +162,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
             return [TextContent(type="text", text=result_str)]
         except Exception as e:
-            return [TextContent(type="text", text=f"Error running full audit: {str(e)}")]
+            return [TextContent(type="text", text=f"Error running full audit: {e!s}")]
             
     else:
         raise ValueError(f"Unknown tool: {name}")
 
-async def main():
-    # Run the MCP server over standard input/output
+async def main() -> None:
+    """Runs the MCP server over standard input/output streams."""
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
 

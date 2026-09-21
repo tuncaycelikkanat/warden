@@ -1,9 +1,14 @@
+"""Monitor service for evaluating agent actions and commands against security policies."""
+
 import re
 from typing import Any
 
 
 class AgentActionMonitor:
+    """Evaluates agent CLI actions against security policies and dangerous shell patterns."""
+
     def __init__(self):
+        """Initializes dangerous command regex patterns."""
         # Define dangerous command patterns
         self.dangerous_patterns = [
             (r"curl\s+.*?\|\s*bash", "Direct execution of remote scripts via curl | bash"),

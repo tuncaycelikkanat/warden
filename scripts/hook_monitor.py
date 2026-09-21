@@ -1,13 +1,17 @@
-import sys
+"""Antigravity agent action monitor hook for intercepting dangerous commands."""
+
 import json
 import os
+import sys
 
 # Add the project root to sys.path so we can import core
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.services.monitor import AgentActionMonitor
 
+
 def main():
+    """Main entry point for agent hook script."""
     try:
         # Antigravity sends context as JSON on stdin
         input_data = sys.stdin.read()
@@ -39,7 +43,7 @@ def main():
         
     except Exception as e:
         # On error, allow execution but we could log it
-        print(json.dumps({"decision": "allow", "reason": f"Hook error: {str(e)}"}))
+        print(json.dumps({"decision": "allow", "reason": f"Hook error: {e!s}"}))
 
 if __name__ == "__main__":
     main()
