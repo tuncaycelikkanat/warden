@@ -1,3 +1,5 @@
+"""FastAPI routes for file scanning and full repository auditing."""
+
 import json
 import os
 
@@ -11,15 +13,21 @@ from core.services.scanner import SecurityScannerService
 
 router = APIRouter(prefix="/api/v1")
 
+
 class ScanRequest(BaseModel):
+    """Request payload for scanning a specific file."""
     file_path: str
 
+
 def get_session():
+    """Database session dependency generator."""
     with Session(engine) as session:
         yield session
 
+
 @router.post("/scan")
 async def scan_file(request: ScanRequest, session: Session = Depends(get_session)):
+    """Runs SAST security scanning against target file and persists findings."""
     if not os.path.exists(request.file_path):
         raise HTTPException(status_code=404, detail="File not found")
         
@@ -44,11 +52,15 @@ async def scan_file(request: ScanRequest, session: Session = Depends(get_session
         "scan_id": scan_result.id
     }
 
+
 class AuditRequest(BaseModel):
+    """Request payload for triggering repository audit."""
     repo_path: str
+
 
 @router.post("/audit")
 async def run_audit(request: AuditRequest):
+    """Runs complete 2-layer WARDEN audit against target repository."""
     if not os.path.exists(request.repo_path):
         raise HTTPException(status_code=404, detail="Repo not found")
         
