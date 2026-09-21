@@ -15,10 +15,11 @@ class ScorecardResult:
     """Represents the final aggregated scorecard result and grades."""
     total_score: int
     layer1_score: int
-    layer2_score: int
+    layer2_score: int | None
     grade: str  # A+, A, B, C, D, F
     breakdown: dict[str, Any]
     group_scores: dict[str, float] | None = None
+    weight_redistributed_to_layer1: bool = False
 
 
 class ScorecardAggregatorService:
@@ -37,12 +38,20 @@ class ScorecardAggregatorService:
         group_scores = self._calc_group_scores(member_scores)
         layer1_score = self._calc_layer1(group_scores)
 
+        redistributed = False
         if not layer2_data:
-            layer2_score = layer1_score
+            layer2_score = None
             total = layer1_score
+            redistributed = True
         else:
-            layer2_score = self._calc_layer2(layer2_data)
-            total = round((layer1_score * self.layer1_weight) + (layer2_score * self.layer2_weight))
+            calc_l2, unmeasured = self._calc_layer2(layer2_data)
+            if unmeasured or calc_l2 is None:
+                layer2_score = None
+                total = layer1_score
+                redistributed = True
+            else:
+                layer2_score = calc_l2
+                total = round((layer1_score * self.layer1_weight) + (layer2_score * self.layer2_weight))
 
         total = max(0, min(100, total))
 
@@ -57,6 +66,7 @@ class ScorecardAggregatorService:
                 "member_scores": member_scores,
             },
             group_scores=group_scores,
+            weight_redistributed_to_layer1=redistributed,
         )
 
     def _score_security(self, findings: list[dict[str, Any]]) -> float:
@@ -333,16 +343,25 @@ class ScorecardAggregatorService:
         l1_total = sum(group_scores[g.key] * (g.weight / total_group_weight) for g in valid_groups)
         return max(0, min(100, round(l1_total)))
 
-    def _calc_layer2(self, dynamic_categories: list[dict[str, Any]]) -> int:
-        """Converts rubric levels (0-10) to 0-100 scale."""
+    def _calc_layer2(self, dynamic_categories: list[dict[str, Any]]) -> tuple[int | None, bool]:
+        """Converts rubric levels (0-10) to 0-100 scale, filtering unmeasured categories."""
         if not dynamic_categories:
-            return 0
+            return None, False
+
+        evaluated_cats = [
+            cat
+            for cat in dynamic_categories
+            if cat.get("rubric_verdict", {}).get("evaluated", True)
+            and cat.get("rubric_verdict", {}).get("level") is not None
+        ]
+        if not evaluated_cats:
+            return None, True  # Unmeasured: weight redistributed to Layer 1
 
         total_levels = sum(
-            cat.get("rubric_verdict", {}).get("level", 5) for cat in dynamic_categories
+            cat["rubric_verdict"]["level"] for cat in evaluated_cats
         )
-        avg_level = total_levels / len(dynamic_categories)
-        return round(avg_level * 10)
+        avg_level = total_levels / len(evaluated_cats)
+        return round(avg_level * 10), False
 
     def _get_grade(self, score: int) -> str:
         """Determines letter grade from numeric score."""

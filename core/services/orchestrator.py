@@ -15,7 +15,12 @@ from core.services.duplication import DuplicationService
 from core.services.license_compliance import LicenseComplianceService
 from core.services.profiler import ProfileResult, ProjectProfilerService
 from core.services.resilience import ResilienceAnalyzerService
-from core.services.rubric import CategoryEvidence, CodeSnippet, RubricEvaluatorService
+from core.services.rubric import (
+    CategoryEvidence,
+    CodeSnippet,
+    RubricEvaluatorService,
+    RubricVerdict,
+)
 from core.services.scanner import SecurityScannerService
 from core.services.scorecard import ScorecardAggregatorService
 from core.services.secret_leak import SecretLeakScannerService
@@ -798,6 +803,41 @@ class AuditOrchestrator:
             findings.append(f"Tech debt measured: {l1_summary.get('tech_debt_measured')}")
         return findings
 
+    async def _evaluate_category_with_limit(
+        self,
+        semaphore: asyncio.Semaphore,
+        category_key: str,
+        evidence: CategoryEvidence,
+    ) -> RubricVerdict:
+        """Evaluates a dynamic category under concurrency limiting with exponential backoff retry."""
+        import random
+
+        async with semaphore:
+            for attempt in range(3):
+                try:
+                    return await self.rubric.evaluate(category_key, evidence)
+                except Exception as exc:
+                    err_str = str(exc).lower()
+                    if "429" in err_str or "rate" in err_str or "quota" in err_str:
+                        backoff = (2 ** attempt) + random.uniform(0.1, 0.5)
+                        logger.warning(
+                            f"Rate limit hit evaluating '{category_key}', retrying in {backoff:.2f}s..."
+                        )
+                        await asyncio.sleep(backoff)
+                        continue
+                    return RubricVerdict(
+                        level=None,
+                        justification=None,
+                        evaluated=False,
+                        reason=f"evaluation_error: {exc}",
+                    )
+            return RubricVerdict(
+                level=None,
+                justification=None,
+                evaluated=False,
+                reason="rate_limit_exhausted",
+            )
+
     async def _evaluate_l2_categories(
         self,
         path: Path,
@@ -818,8 +858,10 @@ class AuditOrchestrator:
         ev_files = self._get_base_evidence_files(path, files)
         ev_findings = self._build_base_findings(l1_summary)
 
+        concurrency_limit = asyncio.Semaphore(2)
         l2_tasks = [
-            self.rubric.evaluate(
+            self._evaluate_category_with_limit(
+                concurrency_limit,
                 cat.key,
                 self._build_category_evidence(
                     path,
@@ -845,6 +887,9 @@ class AuditOrchestrator:
                     "level": verdict.level,
                     "justification": verdict.justification,
                     "cited_evidence": verdict.cited_evidence,
+                    "evaluated": verdict.evaluated,
+                    "reason": verdict.reason,
+                    "citation_warning": verdict.citation_warning,
                 },
             }
             for cat, verdict in zip(profile.dynamic_categories, verdicts)
