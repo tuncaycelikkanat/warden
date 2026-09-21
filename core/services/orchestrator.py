@@ -902,28 +902,31 @@ class AuditOrchestrator:
         path = Path(repo_path)
         logger.info(f"Starting full audit on {path.resolve()} (full_history={full_history})")
 
-        # 1. Discover files
-        files = discover_source_files(path)
+        try:
+            # 1. Discover files
+            files = discover_source_files(path)
 
-        # 2. Run Layer 1 (Mechanical) in parallel
-        logger.info("Running Layer 1 checks...")
-        layer1_data, l1_summary = await self._run_l1_scanners(path, files, full_history=full_history)
+            # 2. Run Layer 1 (Mechanical) in parallel
+            logger.info("Running Layer 1 checks...")
+            layer1_data, l1_summary = await self._run_l1_scanners(path, files, full_history=full_history)
 
-        # 3. Profile project & evaluate Layer 2 rubrics
-        logger.info("Profiling project for Layer 2 categories...")
-        profile = self.profiler.profile(path)
-        layer2_data = await self._evaluate_l2_categories(
-            path, files, profile, layer1_data, l1_summary
-        )
+            # 3. Profile project & evaluate Layer 2 rubrics
+            logger.info("Profiling project for Layer 2 categories...")
+            profile = self.profiler.profile(path)
+            layer2_data = await self._evaluate_l2_categories(
+                path, files, profile, layer1_data, l1_summary
+            )
 
-        # 4. Aggregate Scores
-        logger.info("Aggregating scorecard...")
-        scorecard_result = self.scorecard.calculate(layer1_data, layer2_data)
+            # 4. Aggregate Scores
+            logger.info("Aggregating scorecard...")
+            scorecard_result = self.scorecard.calculate(layer1_data, layer2_data)
 
-        # Cleanup
-        await self.dependencies.close()
-
-        return {
-            "scorecard": scorecard_result.__dict__,
-            "profile_signature": profile.signature,
-        }
+            return {
+                "scorecard": scorecard_result.__dict__,
+                "profile_signature": profile.signature,
+                "matched_categories": [c.key for c in profile.dynamic_categories],
+                "confidence": getattr(profile, "confidence", getattr(profile, "profiling_confidence", "normal")),
+            }
+        finally:
+            # Always ensure dependency health client is closed
+            await self.dependencies.close()

@@ -24,13 +24,16 @@ class AuditReportService:
         scorecard = data["scorecard"]
         gs = scorecard.get("group_scores", {})
         
+        l2_raw = scorecard.get("layer2_score")
+        l2_val = int(l2_raw) if l2_raw is not None else -1
+
         report = AuditReport(
             repo_path=repo_path,
             total_score=scorecard["total_score"],
             grade=scorecard["grade"],
             profile_signature=data.get("profile_signature", ""),
             layer1_score=scorecard["layer1_score"],
-            layer2_score=scorecard["layer2_score"],
+            layer2_score=l2_val,
             group_security=gs.get("security_supply_chain"),
             group_code_health=gs.get("code_health_test"),
             group_structural=gs.get("structural_health"),
@@ -131,18 +134,33 @@ class AuditReportService:
         prev_grade: str,
         curr_l1: int,
         prev_l1: int | None,
-        curr_l2: int,
+        curr_l2: int | None,
         prev_l2: int | None,
+        weight_redistributed: bool = False,
     ) -> list[str]:
         """Builds executive summary markdown rows for total, Layer 1, and Layer 2."""
-        md = [
+        md = []
+        if weight_redistributed or curr_l2 is None:
+            md.extend([
+                (
+                    "> [!WARNING]\n"
+                    "> **KATMAN 2 DEĞERLENDİRİLEMEDİ:** LLM API anahtarı eksik veya model havuzuna erişilemedi. "
+                    "Katman 2 mimari rubrik ağırlığı (%40) doğrudan Katman 1'e aktarılmıştır (%60 → %100).\n\n"
+                )
+            ])
+
+        curr_l2_display = f"{curr_l2}" if curr_l2 is not None else "— (Ölçülmedi)"
+        curr_l2_status = self._fmt_status(curr_l2) if curr_l2 is not None else "⚪ Ölçülmedi"
+        l1_desc = "16 Otomatize Analizör (%100 Ağırlık)" if weight_redistributed else "16 Otomatize Analizör"
+
+        md.extend([
             "### 🎓 WARDEN Hiyerarşik Denetim Karnesi & Karşılaştırmalı Skor Kartı\n",
             f"| Denetim Seviyesi | {prev_label} | {curr_label} | Değişim (Δ) | Başarı Notu | Genel Durum |",
             "| :--- | :---: | :---: | :---: | :---: | :--- |",
             f"| **GENEL PUAN (TOTAL SCORE)** | **{prev_total if prev_total is not None else '—'}** (Grade {prev_grade}) | **{curr_total}** (Grade {curr_grade}) | **{self._fmt_delta(curr_total, prev_total)}** | **Grade {curr_grade}** | **{self._fmt_status(curr_total)}** |",
-            f"| ├─ Katman 1 (Mekanik & Deterministik %60) | {prev_l1 if prev_l1 is not None else '—'} | {curr_l1} | {self._fmt_delta(curr_l1, prev_l1)} | {self._fmt_status(curr_l1)} | 14 Otomatize Analizör |",
-            f"| └─ Katman 2 (Mimari LLM Rubrik %40) | {prev_l2 if prev_l2 is not None else '—'} | {curr_l2} | {self._fmt_delta(curr_l2, prev_l2)} | {self._fmt_status(curr_l2)} | Dinamik Mimari Sinyaller |\n",
-        ]
+            f"| ├─ Katman 1 (Mekanik & Deterministik %60) | {prev_l1 if prev_l1 is not None else '—'} | {curr_l1} | {self._fmt_delta(curr_l1, prev_l1)} | {self._fmt_status(curr_l1)} | {l1_desc} |",
+            f"| └─ Katman 2 (Mimari LLM Rubrik %40) | {prev_l2 if prev_l2 is not None else '—'} | {curr_l2_display} | {self._fmt_delta(curr_l2, prev_l2)} | {curr_l2_status} | Dinamik Mimari Sinyaller |\n",
+        ])
         return md
 
     def _build_l1_table(
@@ -259,11 +277,12 @@ class AuditReportService:
         }
         group_scores: dict[str, float] = sc.get("group_scores") or {}
         member_scores: dict[str, float] = sc.get("breakdown", {}).get("member_scores") or {}
+        prev_l2 = prev.layer2_score if (prev.layer2_score is not None and prev.layer2_score >= 0) else None
         return (
             prev.total_score,
             prev.grade,
             prev.layer1_score,
-            prev.layer2_score,
+            prev_l2,
             group_scores,
             member_scores,
             l2_dict,
@@ -292,7 +311,8 @@ class AuditReportService:
             prev_label, curr_label, sc.get("total_score", 0), prev_total,
             sc.get("grade", "N/A"), prev_grade,
             sc.get("layer1_score", 0), prev_l1,
-            sc.get("layer2_score", 0), prev_l2,
+            sc.get("layer2_score"), prev_l2,
+            weight_redistributed=sc.get("weight_redistributed_to_layer1", False),
         )
         md.extend(self._build_l1_table(
             prev_label, curr_label, sc.get("group_scores", {}), prev_groups,

@@ -283,6 +283,11 @@ class ProjectProfile:
         """Alias for backward compatibility."""
         return self.dynamic_categories
 
+    @property
+    def confidence(self) -> str:
+        """Alias for backward compatibility."""
+        return self.profiling_confidence
+
 
 # Alias for backward compatibility
 ProfileResult = ProjectProfile

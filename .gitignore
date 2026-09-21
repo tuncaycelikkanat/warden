@@ -55,3 +55,7 @@ htmlcov/
 # Database
 *.db
 *.sqlite3
+
+# Generated Audit Reports
+warden_reports/
+WARDEN_EXECUTIVE_REPORT.md
