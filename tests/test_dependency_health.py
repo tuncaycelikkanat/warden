@@ -1,9 +1,12 @@
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+
 import httpx
+import pytest
 
 from core.services.dependency_health import DependencyHealthService
+from core.services.scorecard import ScorecardAggregatorService
+
 
 @pytest.mark.asyncio
 async def test_osv_network_error_tolerance(tmp_path: Path):
@@ -15,18 +18,17 @@ async def test_osv_network_error_tolerance(tmp_path: Path):
     req_file.write_text("requests==2.31.0\nflask==3.0.0\n")
 
     service = DependencyHealthService()
-    
-    # Mock httpx.AsyncClient.post to simulate network failure (e.g. timeout / DNS error)
+
     with patch.object(service._http, "post", side_effect=httpx.ConnectError("Connection refused by api.osv.dev")):
         result = await service.check_manifest(tmp_path)
-        
+
         assert len(result.entries) == 2
         for entry in result.entries:
-            # Should have handled error gracefully, returning empty known_vulnerabilities without crashing
             assert entry.known_vulnerabilities == []
             assert entry.name in ["requests", "flask"]
 
     await service.close()
+
 
 @pytest.mark.asyncio
 async def test_manifest_parsing(tmp_path: Path):
@@ -46,3 +48,141 @@ async def test_manifest_parsing(tmp_path: Path):
     assert "pytest" in names
     assert "httpx" in names
     assert "black" in names
+
+
+@pytest.mark.asyncio
+async def test_manifest_parsing_extras_and_skipped_lines(tmp_path: Path):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("""
+    # Packages with extras and constraints
+    celery[redis,auth]==5.3.0
+    urllib3>=1.26.0,<2.0.0
+    fastapi[all]
+    -e git+https://github.com/encode/uvicorn.git#egg=uvicorn
+    --extra-index-url https://custom.repo.org/simple
+    ./local_submodule
+    """)
+
+    service = DependencyHealthService()
+    parse_result = service._parse_manifest(tmp_path)
+    await service.close()
+
+    pkg_map = {p["name"]: p for p in parse_result.packages}
+    assert "celery" in pkg_map
+    assert pkg_map["celery"]["version"] == "5.3.0"
+    assert pkg_map["celery"]["pinned"] is True
+
+    assert "urllib3" in pkg_map
+    assert pkg_map["urllib3"]["version"] is None
+    assert pkg_map["urllib3"]["pinned"] is False
+
+    assert "fastapi" in pkg_map
+    assert pkg_map["fastapi"]["version"] is None
+    assert pkg_map["fastapi"]["pinned"] is False
+
+    # Skipped lines verification
+    skipped = parse_result.skipped_lines
+    assert len(skipped) >= 2
+    assert any("git+" in s["line"] or "uvicorn" in s["line"] for s in skipped)
+    assert any("--extra-index-url" in s["line"] for s in skipped)
+
+
+@pytest.mark.asyncio
+async def test_manifest_fallback_pyproject_toml(tmp_path: Path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("""
+[project]
+name = "demo-app"
+version = "0.1.0"
+dependencies = [
+    "requests==2.31.0",
+    "pydantic[email]>=2.5.0",
+    "ruff"
+]
+""")
+
+    service = DependencyHealthService()
+    parse_result = service._parse_manifest(tmp_path)
+    await service.close()
+
+    names = [p["name"] for p in parse_result.packages]
+    assert "requests" in names
+    assert "pydantic" in names
+    assert "ruff" in names
+
+
+@pytest.mark.asyncio
+async def test_unpinned_dependencies_status_and_penalty(tmp_path: Path):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("requests\nflask>=3.0\n")
+
+    service = DependencyHealthService()
+
+    # Mock integrity checker to return low risk for both
+    with patch.object(service._integrity_checker, "calculate_risk_score", new_callable=AsyncMock) as mock_risk:
+        mock_risk.return_value = {"risk_level": "low", "details": ["Normal package"]}
+        result = await service.check_manifest(tmp_path)
+
+        assert len(result.entries) == 2
+        assert "requests" in result.unpinned_packages
+        assert "flask" in result.unpinned_packages
+
+        for entry in result.entries:
+            assert entry.status == "version_unpinned"
+            assert "sabitlenmemiş" in entry.note
+
+        # Verify ScorecardAggregator applies -2 per unpinned dependency
+        scorecard = ScorecardAggregatorService()
+        dep_score = scorecard._score_dependencies([
+            {"status": e.status, "known_vulnerabilities": e.known_vulnerabilities}
+            for e in result.entries
+        ])
+        assert dep_score == 96.0  # 100 - (2 * 2)
+
+    await service.close()
+
+
+@pytest.mark.asyncio
+async def test_osv_query_caching():
+    service = DependencyHealthService()
+
+    # First call puts dummy vuln into cache
+    dummy_vuln = {"id": "CVE-2023-1234", "summary": "Sample CVE", "details": "Critical issue"}
+    service._osv_cache.set("pypi", "test-pkg", "1.0.0", [dummy_vuln])
+
+    # Calling _query_osv should return from cache without network request
+    with patch.object(service._http, "post") as mock_post:
+        vulns = await service._query_osv("test-pkg", "1.0.0", "PyPI")
+        assert len(vulns) == 1
+        assert vulns[0].cve_id == "CVE-2023-1234"
+        mock_post.assert_not_called()
+
+    await service.close()
+
+
+@pytest.mark.asyncio
+async def test_typosquatting_triggers_failed_check_and_penalty(tmp_path: Path):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("reqeusts==2.31.0\n")
+
+    service = DependencyHealthService()
+
+    # Mock integrity checker to return high risk typosquatting
+    with patch.object(service._integrity_checker, "calculate_risk_score", new_callable=AsyncMock) as mock_risk:
+        mock_risk.return_value = {
+            "risk_level": "high",
+            "details": ["Typosquatting alert: suspiciously similar to popular package 'requests'"],
+        }
+        result = await service.check_manifest(tmp_path)
+
+        assert len(result.entries) == 1
+        assert result.entries[0].status == "failed_check"
+        assert "Typosquatting alert" in result.entries[0].note
+
+        scorecard = ScorecardAggregatorService()
+        dep_score = scorecard._score_dependencies([
+            {"status": result.entries[0].status, "known_vulnerabilities": []}
+        ])
+        assert dep_score == 80.0  # 100 - 20
+
+    await service.close()
