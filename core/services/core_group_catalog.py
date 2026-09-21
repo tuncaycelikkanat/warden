@@ -1,19 +1,25 @@
+"""Core group and member catalog definitions for Layer 1 hierarchical scorecard."""
+
 from dataclasses import dataclass, field
 
 CATALOG_VERSION = "1.0.0"
 
+
 @dataclass
 class CoreMember:
+    """Represents a member analyzer inside a Layer 1 group."""
     key: str
     label: str
-    weight: float  # grup içi ağırlık (0-1 arasında, gruptaki üyelerin toplamı 1.0)
+    weight: float  # intra-group weight (sums to 1.0 per group)
+
 
 @dataclass
 class CoreGroup:
+    """Represents a thematic group of analyzers inside Layer 1."""
     key: str
     label: str
     emoji: str
-    weight: float  # toplam L1 içindeki ağırlık (0-1 arasında)
+    weight: float  # group weight inside Layer 1
     members: list[CoreMember] = field(default_factory=list)
 
 CORE_GROUPS = [

@@ -1,10 +1,16 @@
+"""Dummy test file containing vulnerability patterns for SAST testing."""
+
 import hashlib
 
+
 def hash_password(password):
+    """Hash password using md5."""
     # This is a bad idea, MD5 is insecure
     return hashlib.md5(password.encode()).hexdigest()
 
+
 def execute_user_code(user_input):
+    """Execute arbitrary code dynamically."""
     exec(user_input)
 
 # Hardcoded secret to test our custom Semgrep rule

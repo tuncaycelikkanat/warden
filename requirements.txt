@@ -1,0 +1,8 @@
+fastapi==0.141.1
+google-genai==2.24.0
+httpx==0.28.1
+mcp
+pydantic==2.13.4
+python-dotenv==1.2.2
+sqlmodel==0.0.39
+uvicorn==0.52.1

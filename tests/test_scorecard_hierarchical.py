@@ -1,6 +1,5 @@
-import pytest
 from core.services.scorecard import ScorecardAggregatorService
-from core.services.core_group_catalog import CORE_GROUPS
+
 
 def test_hierarchical_scorecard_calculation():
     service = ScorecardAggregatorService()
@@ -57,14 +56,14 @@ def test_all_100_yields_100():
     service = ScorecardAggregatorService()
     
     # All 14 members receive 100
-    all_100_members = {k: 100.0 for k in MEMBER_TO_GROUP.keys()}
+    all_100_members = {k: 100.0 for k in MEMBER_TO_GROUP}
     
     # When Layer 2 is empty (or disabled)
     result = service.calculate(all_100_members, [])
     assert result.layer1_score == 100
     assert result.total_score == 100
     assert result.grade == "A+"
-    for g_key, g_score in result.group_scores.items():
+    for g_score in result.group_scores.values():
         assert g_score == 100.0
 
 def test_unmeasured_category_redistributes_weight():

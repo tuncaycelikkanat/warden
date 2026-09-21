@@ -1,3 +1,5 @@
+"""Utility functions for discovering source files while respecting ignore patterns."""
+
 import os
 from pathlib import Path
 

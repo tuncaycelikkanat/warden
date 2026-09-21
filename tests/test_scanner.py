@@ -1,5 +1,7 @@
 import os
+
 from core.services.scanner import SecurityScannerService
+
 
 def test_scanner_finds_hardcoded_secret():
     # Use the dummy_test.py that we created earlier

@@ -1,0 +1,8 @@
+[run]
+source = core
+omit =
+    tests/*
+    fixtures/*
+    test_data/*
+    dummy_*
+    vscode-extension/*
