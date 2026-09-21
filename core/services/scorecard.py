@@ -168,6 +168,31 @@ class ScorecardAggregatorService:
         usage = 25.0 if d.get("has_readme_usage_section") else 0.0
         return round((pct * 0.5) + setup + usage, 2)
 
+    def _score_resilience(self, res_data: Any) -> float:
+        """Calculates resilience score normalized by file count."""
+        if not res_data:
+            return 100.0
+
+        if isinstance(res_data, list):
+            cnt = len(res_data)
+            return max(0.0, 100.0 - (cnt * 25.0))
+
+        if isinstance(res_data, dict):
+            raw_defects = res_data.get("defects", res_data.get("findings", []))
+            file_count = int(res_data.get("file_count", 0) or 0)
+        else:
+            raw_defects = getattr(res_data, "defects", getattr(res_data, "findings", []))
+            file_count = int(getattr(res_data, "file_count", 0) or 0)
+
+        defects_list = list(raw_defects) if isinstance(raw_defects, (list, tuple)) else []
+
+        if file_count <= 0:
+            file_count = max(1, len(defects_list))
+
+        density = len(defects_list) / file_count
+        score = max(0.0, 100.0 - (density / 0.4 * 100.0))
+        return max(0.0, min(100.0, round(score, 2)))
+
     def _extract_sec_derived(self, data: dict[str, Any], scores: dict[str, float]) -> None:
         """Derives security group scores from raw security, leak, and dependency outputs."""
         if "security" in data and "security_semgrep" not in scores:
@@ -186,9 +211,19 @@ class ScorecardAggregatorService:
             scores["documentation"] = self._score_docs(data.get("docs", {}))
 
         if "resilience" in data and "resilience_ast" not in scores:
-            res_list = data.get("resilience", [])
-            cnt = len(res_list) if isinstance(res_list, list) else 0
-            scores["resilience_ast"] = max(0.0, 100.0 - (cnt * 25.0))
+            res_val = data.get("resilience")
+            if isinstance(res_val, dict):
+                if not res_val.get("measured", True):
+                    pass  # unmeasured, weight will be redistributed
+                else:
+                    scores["resilience_ast"] = self._score_resilience(res_val)
+            elif isinstance(res_val, list):
+                scores["resilience_ast"] = self._score_resilience(res_val)
+            elif res_val is not None:
+                if not getattr(res_val, "measured", True):
+                    pass
+                else:
+                    scores["resilience_ast"] = self._score_resilience(res_val)
 
     def _extract_health_derived(self, data: dict[str, Any], scores: dict[str, float]) -> None:
         """Derives code health, test coverage, and complexity scores."""

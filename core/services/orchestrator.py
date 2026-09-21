@@ -121,7 +121,13 @@ class AuditOrchestrator:
             "coverage": cov_res.coverage_pct,
             "coverage_meta": cov_res.__dict__,
             "docs": doc_res.__dict__,
-            "resilience": [f.__dict__ for f in res_res.findings],
+            "resilience": {
+                "measured": res_res.measured,
+                "defects": [d.__dict__ for d in res_res.defects],
+                "file_count": res_res.file_count,
+                "skipped_files": [s.__dict__ for s in res_res.skipped_files],
+                "reason": res_res.reason,
+            },
             "license_compliance": lic_res.score,
             "type_safety": type_res.score if type_res.measured else None,
             "type_safety_meta": {
