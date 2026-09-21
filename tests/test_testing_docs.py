@@ -87,17 +87,115 @@ async def test_coverage_execution_timeout(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_documentation_analyzer(tmp_path: Path):
     """Test documentation analyzer on a directory with README and simple python file."""
-    # Create a minimal README
     readme = tmp_path / "README.md"
     readme.write_text("# Project\n\n## Installation\nrun pip install\n\n## Usage\nrun python main.py")
 
-    # Create a python file with docstring
     py_file = tmp_path / "hello.py"
     py_file.write_text('"""Hello module."""\n\ndef greet():\n    """Greet user."""\n    return "hello"\n')
 
     service = DocumentationAnalyzerService()
     res: DocumentationResult = await service.analyze(tmp_path)
 
+    assert res.measured is True
     assert res.has_readme_setup_section is True
     assert res.has_readme_usage_section is True
+    assert res.docstring_coverage_pct is not None
     assert res.docstring_coverage_pct >= 0.0
+
+
+@pytest.mark.asyncio
+async def test_docs_interrogate_missing_unmeasured(tmp_path: Path):
+    """When interrogate binary is not found, measured=False with clear reason is returned."""
+    from unittest.mock import patch
+
+    (tmp_path / "main.py").write_text("def run(): pass\n")
+    service = DocumentationAnalyzerService()
+
+    with patch.object(service, "_resolve_interrogate_cmd", return_value=None):
+        res = await service.analyze(tmp_path)
+        assert res.measured is False
+        assert res.reason == "interrogate_not_found"
+        assert res.docstring_coverage_pct is None
+
+
+@pytest.mark.asyncio
+async def test_docs_non_python_repo_unmeasured(tmp_path: Path):
+    """Repos with no Python files are marked unmeasured rather than falsely 0% docstring."""
+    (tmp_path / "Dockerfile").write_text("FROM alpine\n")
+    (tmp_path / "README.md").write_text("# Infra\nSetup and usage guide\n")
+
+    service = DocumentationAnalyzerService()
+    res = await service.analyze(tmp_path)
+
+    assert res.measured is False
+    assert res.reason == "no_python_files"
+    assert res.docstring_coverage_pct is None
+    # README checks should still be captured
+    assert res.has_readme_setup_section is True
+    assert res.has_readme_usage_section is True
+
+
+@pytest.mark.asyncio
+async def test_docs_negation_readme_not_matched(tmp_path: Path):
+    """Negated mentions such as 'kurulum gerekmez' or 'usage is not documented' do not count as positive."""
+    (tmp_path / "main.py").write_text('"""Main."""\ndef f(): pass\n')
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        "# Minimal Lib\n"
+        "Bu proje herhangi bir kurulum gerektirmez.\n"
+        "Usage is not yet documented.\n"
+    )
+
+    service = DocumentationAnalyzerService()
+    res = await service.analyze(tmp_path)
+
+    assert res.has_readme_setup_section is False
+    assert res.has_readme_usage_section is False
+
+
+@pytest.mark.asyncio
+async def test_docs_external_docs_link_full_score(tmp_path: Path):
+    """README pointing to external documentation site (ReadTheDocs, etc.) is awarded full setup/usage."""
+    (tmp_path / "main.py").write_text('"""Main."""\ndef f(): pass\n')
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        "# Enterprise SDK\n\n"
+        "Welcome! Complete API documentation and quickstart guides are hosted at:\n"
+        "https://warden-sdk.readthedocs.io/en/latest/\n"
+    )
+
+    service = DocumentationAnalyzerService()
+    res = await service.analyze(tmp_path)
+
+    assert res.readme_links_external_docs is True
+    assert res.has_readme_setup_section is True
+    assert res.has_readme_usage_section is True
+
+
+@pytest.mark.asyncio
+async def test_docs_interrogate_timeout_unmeasured(tmp_path: Path):
+    """Timeout during interrogate returns measured=False rather than hanging or returning 0."""
+    import subprocess
+    from unittest.mock import patch
+
+    (tmp_path / "main.py").write_text("def run(): pass\n")
+    service = DocumentationAnalyzerService()
+
+    with patch.object(
+        subprocess,
+        "run",
+        side_effect=subprocess.TimeoutExpired(cmd=["interrogate"], timeout=60),
+    ):
+        res = await service.analyze(tmp_path)
+        assert res.measured is False
+        assert res.reason == "interrogate_timeout"
+
+
+def test_docs_scorecard_unmeasured_weight_redistributed():
+    """ScorecardAggregatorService omits unmeasured documentation so group weight is redistributed."""
+    from core.services.scorecard import ScorecardAggregatorService
+
+    sc = ScorecardAggregatorService()
+    scores = sc.calculate({"docs": {"measured": False}}, [])
+    assert "documentation" not in scores.breakdown.get("member_scores", {})
+

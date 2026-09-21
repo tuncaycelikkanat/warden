@@ -218,3 +218,12 @@ def is_lockfile_or_vendor(file_path: Path | str, repo_path: Path | None = None) 
 
     return False
 
+
+def get_interrogate_exclude_args(repo_path: Path | None = None) -> list[str]:
+    """Returns a list of -e arguments for the Interrogate CLI from centralized exclusions."""
+    exclusions = get_scan_exclusions(repo_path, extra=["tests", "test", "fixtures", "test_data"])
+    args: list[str] = []
+    for ex in exclusions:
+        args.extend(["-e", ex])
+    return args
+

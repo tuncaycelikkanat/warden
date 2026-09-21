@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.infra.sandboxed_executor import SandboxedTestExecutor
+from core.services.shared.scan_exclusions import (
+    get_interrogate_exclude_args,
+    is_duplication_excluded,
+    is_lockfile_or_vendor,
+)
+from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
 
@@ -236,64 +243,189 @@ class TestCoverageAnalyzerService:
                 )
 
 
+WARDEN_BASELINE_INTERROGATE_CONFIG = (
+    Path(__file__).resolve().parent.parent.parent / "config" / "interrogate.warden-baseline.toml"
+)
+EXTERNAL_DOCS_PATTERN = re.compile(
+    r"(readthedocs\.io|docs\.[\w-]+\.\w+|\.github\.io/|mkdocs|sphinx|gitbook\.io|notion\.site)",
+    re.IGNORECASE,
+)
+NEGATION_MARKERS = {"not", "no", "değil", "degil", "gerekmez", "yok", "without", "doesn't", "don't", "yet"}
+
+
 @dataclass
 class DocumentationResult:
     """Represents docstring coverage percentage and README completeness."""
-    docstring_coverage_pct: float
-    has_readme_setup_section: bool
-    has_readme_usage_section: bool
+
+    measured: bool = True
+    docstring_coverage_pct: float | None = None
+    has_readme_setup_section: bool = False
+    has_readme_usage_section: bool = False
+    readme_links_external_docs: bool = False
+    reason: str | None = None
 
 
 class DocumentationAnalyzerService:
     """Service to evaluate docstring coverage via Interrogate and README structure."""
 
+    def _resolve_interrogate_cmd(self) -> list[str] | None:
+        """Resolves interrogate binary or execution wrapper."""
+        which_inter = shutil.which("interrogate")
+        if which_inter:
+            return [which_inter]
+
+        venv_inter = Path(".venv/bin/interrogate")
+        if venv_inter.is_file():
+            return [str(venv_inter.resolve())]
+
+        # Try python module
+        try:
+            check_mod = subprocess.run(
+                [sys.executable, "-m", "interrogate", "--help"],
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+            if check_mod.returncode == 0:
+                return [sys.executable, "-m", "interrogate"]
+        except Exception:
+            pass
+
+        # Try uv run
+        if shutil.which("uv"):
+            return ["uv", "run", "interrogate"]
+
+        return None
+
+    def _has_positive_mention(self, content: str, keywords: list[str]) -> bool:
+        """Checks if keywords appear in positive context, rejecting negated occurrences."""
+        words = re.findall(r"[\w]+", content.lower())
+        for i, word in enumerate(words):
+            if any(kw in word for kw in keywords):
+                start = max(0, i - 4)
+                end = min(len(words), i + 5)
+                window = words[start:end]
+                if not any(marker in window for marker in NEGATION_MARKERS):
+                    return True
+        return False
+
+    def _check_readme(self, repo_path: Path) -> tuple[bool, bool, bool]:
+        """Checks for README file, external docs links, and positive setup/usage mentions."""
+        readme_candidates = [
+            f for f in repo_path.iterdir()
+            if f.is_file() and f.name.lower().startswith("readme")
+        ] if repo_path.is_dir() else []
+
+        if not readme_candidates:
+            return False, False, False
+
+        readme_file = min(readme_candidates)
+        try:
+            content = readme_file.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return False, False, False
+
+        # 1. External docs link detection (ReadTheDocs, Sphinx, MkDocs, etc.)
+        links_external = bool(EXTERNAL_DOCS_PATTERN.search(content))
+        if links_external:
+            return True, True, True
+
+        # 2. Setup & Usage with negation awareness
+        has_setup = self._has_positive_mention(content, ["install", "kurulum", "setup"])
+        has_usage = self._has_positive_mention(content, ["usage", "kullanım", "kullanim"])
+
+        return has_setup, has_usage, False
+
+    def _has_python_files(self, repo_path: Path) -> bool:
+        """Checks if the repository contains at least one non-excluded Python file."""
+        all_files = discover_source_files(repo_path)
+        for f in all_files:
+            if f.suffix != ".py":
+                continue
+            rel_str = str(f.relative_to(repo_path)) if f.is_relative_to(repo_path) else str(f)
+            if is_lockfile_or_vendor(rel_str, repo_path) or is_duplication_excluded(rel_str, repo_path):
+                continue
+            return True
+        return False
+
+    def _run_interrogate(self, repo_path: Path) -> tuple[float | None, bool, str | None]:
+        """Executes interrogate with baseline config and centralized exclusions."""
+        cmd_base = self._resolve_interrogate_cmd()
+        if not cmd_base:
+            return None, False, "interrogate_not_found"
+
+        cmd = list(cmd_base) + ["-v"]
+
+        # Override project's pyproject.toml [tool.interrogate] with WARDEN baseline config
+        if WARDEN_BASELINE_INTERROGATE_CONFIG.is_file():
+            cmd.extend(["-c", str(WARDEN_BASELINE_INTERROGATE_CONFIG)])
+
+        # Centralized exclusions
+        cmd.extend(get_interrogate_exclude_args(repo_path))
+
+        # Standard baseline flags
+        cmd.extend(["-i", "-I", "-s", "--ignore-regex", ".*dummy.*", "."])
+
+        try:
+            res = subprocess.run(
+                cmd,
+                cwd=str(repo_path),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return None, False, "interrogate_timeout"
+        except Exception as e:
+            logger.warning("Failed to run interrogate: %s", e)
+            return None, False, "interrogate_not_found"
+
+        for line in res.stdout.splitlines():
+            if "actual:" in line:
+                match = re.search(r"actual:\s*([\d.]+)%", line)
+                if match:
+                    return float(match.group(1)), True, None
+
+        if "no files to display" in res.stdout.lower() or "passed" in res.stdout.lower():
+            return 100.0, True, None
+
+        return None, False, "interrogate_output_unparseable"
+
     async def analyze(self, repo_path: Path) -> DocumentationResult:
         """Analyzes docstring coverage and README contents."""
         import asyncio
 
-        def run_interrogate():
-            try:
-                inter_bin = shutil.which("interrogate")
-                inter_base = [inter_bin] if inter_bin else ["uv", "run", "interrogate"]
+        has_setup, has_usage, links_ext = await asyncio.to_thread(self._check_readme, repo_path)
 
-                cmd = list(inter_base) + [
-                    "-v",
-                    "-e", "node_modules", "-e", "vscode-extension",
-                    "-e", "fixtures", "-e", "test_data", "-e", "tests",
-                    "-i", "-I", "-s",
-                    "--ignore-regex", ".*dummy.*",
-                    "."
-                ]
-                res = subprocess.run(cmd, cwd=str(repo_path), capture_output=True, text=True, check=False)
-                for line in res.stdout.splitlines():
-                    if "actual:" in line:
-                        # e.g., "RESULT: FAILED (minimum: 80.0%, actual: 21.2%)"
-                        import re
-                        match = re.search(r"actual:\s*([\d\.]+)%", line)
-                        if match:
-                            return float(match.group(1))
-                return 0.0
-            except Exception as e:
-                logger.warning(f"Failed to run interrogate: {e}")
-                return 0.0
-                
-        def check_readme():
-            readme_files = list(repo_path.glob("README*"))
-            has_setup = False
-            has_usage = False
-            if readme_files:
-                content = readme_files[0].read_text().lower()
-                if "install" in content or "kurulum" in content or "setup" in content:
-                    has_setup = True
-                if "usage" in content or "kullanım" in content:
-                    has_usage = True
-            return has_setup, has_usage
+        # Check if Python files exist
+        has_py = await asyncio.to_thread(self._has_python_files, repo_path)
+        if not has_py:
+            return DocumentationResult(
+                measured=False,
+                docstring_coverage_pct=None,
+                has_readme_setup_section=has_setup,
+                has_readme_usage_section=has_usage,
+                readme_links_external_docs=links_ext,
+                reason="no_python_files",
+            )
 
-        doc_pct = await asyncio.to_thread(run_interrogate)
-        has_setup, has_usage = await asyncio.to_thread(check_readme)
-        
+        doc_pct, measured, reason = await asyncio.to_thread(self._run_interrogate, repo_path)
+        if not measured:
+            return DocumentationResult(
+                measured=False,
+                docstring_coverage_pct=None,
+                has_readme_setup_section=has_setup,
+                has_readme_usage_section=has_usage,
+                readme_links_external_docs=links_ext,
+                reason=reason,
+            )
+
         return DocumentationResult(
+            measured=True,
             docstring_coverage_pct=doc_pct,
             has_readme_setup_section=has_setup,
-            has_readme_usage_section=has_usage
+            has_readme_usage_section=has_usage,
+            readme_links_external_docs=links_ext,
+            reason=None,
         )

@@ -160,13 +160,20 @@ class ScorecardAggregatorService:
         score = max(0.0, min(100.0, round(100.0 - hotspot_penalty - todo_penalty, 2)))
         return score
 
-    def _score_docs(self, d: dict[str, Any]) -> float:
+    def _score_docs(self, d: Any) -> float:
         if not d:
             return 100.0
-        pct = d.get("docstring_coverage_pct", 0.0)
-        setup = 25.0 if d.get("has_readme_setup_section") else 0.0
-        usage = 25.0 if d.get("has_readme_usage_section") else 0.0
-        return round((pct * 0.5) + setup + usage, 2)
+        if isinstance(d, dict):
+            pct = d.get("docstring_coverage_pct", 0.0)
+            setup = 25.0 if d.get("has_readme_setup_section") else 0.0
+            usage = 25.0 if d.get("has_readme_usage_section") else 0.0
+        else:
+            pct = getattr(d, "docstring_coverage_pct", 0.0)
+            setup = 25.0 if getattr(d, "has_readme_setup_section", False) else 0.0
+            usage = 25.0 if getattr(d, "has_readme_usage_section", False) else 0.0
+
+        doc_pct = float(pct or 0.0)
+        return round((doc_pct * 0.5) + setup + usage, 2)
 
     def _score_resilience(self, res_data: Any) -> float:
         """Calculates resilience score normalized by file count."""
@@ -208,7 +215,17 @@ class ScorecardAggregatorService:
     def _extract_resilience_metrics(self, data: dict[str, Any], scores: dict[str, float]) -> None:
         """Derives documentation and resilience scores."""
         if "docs" in data and "documentation" not in scores:
-            scores["documentation"] = self._score_docs(data.get("docs", {}))
+            docs_val = data.get("docs")
+            if isinstance(docs_val, dict):
+                if not docs_val.get("measured", True):
+                    pass  # unmeasured, weight redistributed
+                else:
+                    scores["documentation"] = self._score_docs(docs_val)
+            elif docs_val is not None:
+                if not getattr(docs_val, "measured", True):
+                    pass
+                else:
+                    scores["documentation"] = self._score_docs(docs_val)
 
         if "resilience" in data and "resilience_ast" not in scores:
             res_val = data.get("resilience")
