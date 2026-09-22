@@ -1,0 +1,51 @@
+site_name: WARDEN Documentation
+site_description: Autonomous Security & Architectural Quality Governance Engine
+site_author: Tuncay Çelikkanat
+repo_url: https://github.com/tuncaycelikkanat/warden
+repo_name: tuncaycelikkanat/warden
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Aydınlık moda geç
+    - scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Karanlık moda geç
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Ana Sayfa: README.md
+  - Başlangıç:
+      - Hızlı Başlangıç: docs/getting-started.md
+      - Mimari & Skorlama: docs/architecture-and-scoring.md
+  - Yönetişim & Kalite:
+      - Vibe-Coding Yönetişimi: docs/vibe-coding-governance.md
+      - CI/CD Kalite Kapıları: docs/ci-cd-quality-gates.md
+  - Referans & Entegrasyon:
+      - Yapılandırma Referansı: docs/configuration-reference.md
+      - REST API & Webhook'lar: docs/api-and-webhooks.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list

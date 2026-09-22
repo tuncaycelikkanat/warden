@@ -27,3 +27,10 @@ variable "task_memory" {
   description = "Memory (MB) allocated for ECS Fargate task"
   default     = "2048"
 }
+
+variable "subnet_ids" {
+  type        = list(string)
+  description = "List of VPC Subnet IDs for ECS Fargate service placement"
+  default     = []
+}
+

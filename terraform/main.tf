@@ -87,3 +87,49 @@ resource "aws_ecs_task_definition" "warden_task" {
     }
   ])
 }
+
+# CloudWatch Log Group for container logs
+resource "aws_cloudwatch_log_group" "warden_logs" {
+  name              = "/ecs/${var.environment}-warden"
+  retention_in_days = 30
+
+  tags = {
+    Environment = var.environment
+    Project     = "WARDEN"
+  }
+}
+
+# ECS Service running Fargate tasks
+resource "aws_ecs_service" "warden_service" {
+  name            = "${var.environment}-warden-service"
+  cluster         = aws_ecs_cluster.warden_cluster.id
+  task_definition = aws_ecs_task_definition.warden_task.arn
+  desired_count   = 2
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.subnet_ids
+    security_groups  = [aws_security_group.warden_sg.id]
+    assign_public_ip = true
+  }
+}
+
+# Security group allowing HTTP traffic
+resource "aws_security_group" "warden_sg" {
+  name        = "${var.environment}-warden-sg"
+  description = "Allow inbound HTTP traffic to WARDEN API"
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}

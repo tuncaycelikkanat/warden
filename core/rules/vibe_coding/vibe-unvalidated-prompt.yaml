@@ -1,0 +1,14 @@
+rules:
+  - id: vibe-unvalidated-prompt-interpolation
+    severity: WARNING
+    languages: [python]
+    message: "Direct string formatting into LLM prompt without sanitization — susceptible to prompt injection attacks."
+    patterns:
+      - pattern-either:
+          - pattern: '$CLIENT.models.generate_content(..., contents=f"...{$VAR}...", ...)'
+          - pattern: '$CLIENT.chat.completions.create(..., messages=[..., {"role": $ROLE, "content": f"...{$VAR}..."}, ...], ...)'
+          - pattern: '$CLIENT.chat.completions.create(..., messages=[..., {"role": $ROLE, "content": "...".format(...)}, ...], ...)'
+    metadata:
+      category: security
+      cwe: "CWE-20: Improper Input Validation"
+      confidence: MEDIUM

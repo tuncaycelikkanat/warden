@@ -2,10 +2,33 @@ version: '3.8'
 
 services:
   warden:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: warden_service
     ports:
       - "8000:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=sqlite:////app/data/warden.db
+      - REDIS_URL=redis://redis:6379/0
+      - WARDEN_AUTH_ENABLED=${WARDEN_AUTH_ENABLED:-false}
+    volumes:
+      - warden_data:/app/data
+      - ./warden_reports:/app/warden_reports
+    depends_on:
+      - redis
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: warden_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  warden_data:
+  redis_data:

@@ -15,12 +15,16 @@ class AuditReport(SQLModel, table=True):
     profile_signature: str
     layer1_score: int
     layer2_score: int = Field(default=-1)  # -1 represents unmeasured Layer 2
-    
+
     group_security: float | None = None
     group_code_health: float | None = None
     group_structural: float | None = None
     group_resilience: float | None = None
     group_dev_hygiene: float | None = None
+
+    # Milestone: bir audit'i referans nokta olarak işaretler (hardcoded ID yerine)
+    is_milestone: bool = Field(default=False)
+    milestone_label: str | None = Field(default=None)
 
     raw_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -38,3 +42,4 @@ class AuditCoreMember(SQLModel, table=True):
     weight_at_time: float | None = None
     catalog_version: str | None = None
     details: str | None = None  # JSON olarak detaylar
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -31,7 +31,10 @@ class ScorecardAggregatorService:
         self.layer2_weight = 0.40
 
     def calculate(
-        self, layer1_data: dict[str, Any], layer2_data: list[dict[str, Any]]
+        self,
+        layer1_data: dict[str, Any],
+        layer2_data: list[dict[str, Any]],
+        category_weights: dict[str, float] | None = None,
     ) -> ScorecardResult:
         """Calculates final hierarchical scorecard and assigns grade."""
         member_scores = self._extract_member_scores(layer1_data)
@@ -44,7 +47,7 @@ class ScorecardAggregatorService:
             total = layer1_score
             redistributed = True
         else:
-            calc_l2, unmeasured = self._calc_layer2(layer2_data)
+            calc_l2, unmeasured = self._calc_layer2(layer2_data, category_weights=category_weights)
             if unmeasured or calc_l2 is None:
                 layer2_score = None
                 total = layer1_score
@@ -343,8 +346,12 @@ class ScorecardAggregatorService:
         l1_total = sum(group_scores[g.key] * (g.weight / total_group_weight) for g in valid_groups)
         return max(0, min(100, round(l1_total)))
 
-    def _calc_layer2(self, dynamic_categories: list[dict[str, Any]]) -> tuple[int | None, bool]:
-        """Converts rubric levels (0-10) to 0-100 scale, filtering unmeasured categories."""
+    def _calc_layer2(
+        self,
+        dynamic_categories: list[dict[str, Any]],
+        category_weights: dict[str, float] | None = None,
+    ) -> tuple[int | None, bool]:
+        """Converts rubric levels (0-10) to 0-100 scale using category weights, filtering unmeasured categories."""
         if not dynamic_categories:
             return None, False
 
@@ -357,10 +364,23 @@ class ScorecardAggregatorService:
         if not evaluated_cats:
             return None, True  # Unmeasured: weight redistributed to Layer 1
 
-        total_levels = sum(
-            cat["rubric_verdict"]["level"] for cat in evaluated_cats
-        )
-        avg_level = total_levels / len(evaluated_cats)
+        # Use passed weights or default catalog weights
+        weights_map = category_weights or {}
+
+        total_weighted_points = 0.0
+        total_weight = 0.0
+
+        for cat in evaluated_cats:
+            cat_key = cat.get("category", "")
+            weight = cat.get("weight") or weights_map.get(cat_key, 1.0)
+            level = float(cat["rubric_verdict"]["level"])
+            total_weighted_points += level * weight
+            total_weight += weight
+
+        if total_weight <= 0:
+            return None, True
+
+        avg_level = total_weighted_points / total_weight
         return round(avg_level * 10), False
 
     def _get_grade(self, score: int) -> str:

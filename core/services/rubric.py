@@ -7,8 +7,12 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -172,6 +176,8 @@ class RubricEvaluatorService:
         key = os.getenv("GEMINI_API_KEY")
         return bool(key and key.strip())
 
+
+
     def _validate_citations(
         self, verdict: RubricVerdict, evidence: CategoryEvidence
     ) -> RubricVerdict:
@@ -246,10 +252,10 @@ class RubricEvaluatorService:
                 sanitized_res = self.sanitizer.sanitize(raw_prompt)
                 prompt = sanitized_res.sanitized_text
 
-                models_to_try = [
-                    "gemini-2.5-flash", "gemini-2.5-flash-lite",
-                    "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.5-flash-lite"
-                ]
+                from core.config.llm_config import LLMConfig
+                llm_cfg = LLMConfig.from_env()
+                models_to_try = llm_cfg.models
+
                 last_err = None
                 for model_name in models_to_try:
                     try:
@@ -263,13 +269,14 @@ class RubricEvaluatorService:
                                     "For intermediate levels between defined anchors, calibrate proportionally. "
                                     "Output ONLY valid JSON matching the schema."
                                 ),
-                                temperature=0.0,
+                                temperature=llm_cfg.temperature,
                                 response_mime_type="application/json",
                             ),
                         )
                         if response and response.text:
                             return response.text, model_name, response
                     except Exception as err:
+                        logger.warning(f"Model '{model_name}' başarısız: {err}")
                         last_err = err
                         continue
                 raise last_err if last_err else Exception("No response received from Gemini pool")

@@ -220,3 +220,52 @@ def test_cicd_scorecard_integration():
     # Full CI -> 100.0
     scores_full = sc.calculate({"cicd_presence": 100.0}, [])
     assert scores_full.breakdown["member_scores"]["cicd_presence"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_cicd_gitlab_and_circleci(tmp_path: Path):
+    service = CiCdPresenceService()
+
+    # GitLab
+    gl_path = tmp_path / "gl_repo"
+    gl_path.mkdir()
+    (gl_path / ".gitlab-ci.yml").write_text(
+        "stages:\n  - test\ntest_job:\n  stage: test\n  script: echo 1\n",
+        encoding="utf-8",
+    )
+    res_gl = await service.analyze(gl_path)
+    assert res_gl.score == 100.0
+
+    # CircleCI
+    cc_path = tmp_path / "cc_repo"
+    (cc_path / ".circleci").mkdir(parents=True)
+    (cc_path / ".circleci" / "config.yml").write_text(
+        "version: 2.1\njobs:\n  build:\n    docker:\n      - image: cimg/base:stable\n",
+        encoding="utf-8",
+    )
+    res_cc = await service.analyze(cc_path)
+    assert res_cc.score == 100.0
+
+    # GitHub with on: [push, pull_request, true]
+    gh_path = tmp_path / "gh_repo"
+    (gh_path / ".github" / "workflows").mkdir(parents=True)
+    (gh_path / ".github" / "workflows" / "ci.yml").write_text(
+        "name: CI\non: ['push', 'pull_request', true]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo 1\n",
+        encoding="utf-8",
+    )
+    res_gh = await service.analyze(gh_path)
+    assert res_gh.score == 100.0
+
+
+def test_cicd_file_read_error(tmp_path: Path):
+    from unittest.mock import patch
+
+    service = CiCdPresenceService()
+    f = tmp_path / "ci.yml"
+    f.write_text("dummy")
+
+    with patch("pathlib.Path.read_text", side_effect=OSError("Read error")):
+        res = service._analyze_ci_file(f, tmp_path)
+        assert res.valid_yaml is False
+        assert "read_error" in res.reason
+

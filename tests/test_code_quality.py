@@ -211,3 +211,78 @@ async def test_complexity_excludes_generated_and_migration_files():
     assert res.rank_distribution["F"] == 0
     assert len(res.outlier_blocks) == 0
 
+
+def test_cc_to_rank_all_grades():
+    svc = CodeComplexityService()
+    assert svc._cc_to_rank(3) == "A"
+    assert svc._cc_to_rank(8) == "B"
+    assert svc._cc_to_rank(15) == "C"
+    assert svc._cc_to_rank(25) == "D"
+    assert svc._cc_to_rank(35) == "E"
+    assert svc._cc_to_rank(50) == "F"
+
+
+def test_resolve_radon_cmd_fallbacks(tmp_path: Path):
+    import shutil
+    import subprocess
+    from unittest.mock import MagicMock, patch
+
+    svc = CodeComplexityService()
+
+    # 1. uv_bin
+    with patch("shutil.which", side_effect=lambda x: "/bin/uv" if x == "uv" else None), \
+         patch("pathlib.Path.is_file", return_value=False):
+        assert svc._resolve_radon_cmd(tmp_path) == ["/bin/uv", "run", "radon"]
+
+    # 2. python -m radon
+    with patch("shutil.which", return_value=None), \
+         patch("pathlib.Path.is_file", return_value=False), \
+         patch("importlib.util.find_spec", return_value=MagicMock()):
+        assert "-m" in svc._resolve_radon_cmd(tmp_path)
+
+    # 3. Not found raises FileNotFoundError
+    with patch("shutil.which", return_value=None), \
+         patch("pathlib.Path.is_file", return_value=False), \
+         patch("importlib.util.find_spec", return_value=None):
+        with pytest.raises(FileNotFoundError):
+            svc._resolve_radon_cmd(tmp_path)
+
+
+def test_resolve_ruff_cmd_fallbacks():
+    import shutil
+    from unittest.mock import patch
+
+    svc = LintStyleService()
+
+    # 1. uv run ruff
+    with patch("shutil.which", side_effect=lambda x: "/bin/uv" if x == "uv" else None), \
+         patch("pathlib.Path.exists", return_value=False):
+        assert svc._resolve_ruff_cmd() == ["uv", "run", "ruff"]
+
+    # 2. Empty list if not found
+    with patch("shutil.which", return_value=None), \
+         patch("pathlib.Path.exists", return_value=False):
+        assert svc._resolve_ruff_cmd() == []
+
+
+@pytest.mark.asyncio
+async def test_lint_analyze_timeout_and_error(tmp_path: Path):
+    import subprocess
+    from unittest.mock import patch
+
+    (tmp_path / "foo.py").write_text("x = 1")
+    svc = LintStyleService()
+
+    # Timeout
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["ruff"], timeout=60)):
+        res = await svc.analyze(tmp_path)
+        assert res.measured is False
+        assert "timed_out" in res.reason
+
+    # Error
+    with patch("subprocess.run", side_effect=OSError("Ruff crashed")):
+        res2 = await svc.analyze(tmp_path)
+        assert res2.measured is False
+        assert "error" in res2.reason
+
+

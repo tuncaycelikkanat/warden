@@ -186,3 +186,62 @@ async def test_typosquatting_triggers_failed_check_and_penalty(tmp_path: Path):
         assert dep_score == 80.0  # 100 - 20
 
     await service.close()
+
+
+@pytest.mark.asyncio
+async def test_vcs_urls_and_pyproject_error(tmp_path: Path):
+    service = DependencyHealthService()
+
+    # 1. VCS URLs
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text(
+        "git+https://github.com/foo/bar.git#egg=bar-pkg\n"
+        "git+https://github.com/foo/baz.git\n"
+    )
+
+    parse_res = service._parse_manifest(tmp_path)
+    assert len(parse_res.packages) == 1
+    assert parse_res.packages[0]["name"] == "bar-pkg"
+    assert len(parse_res.skipped_lines) == 1
+    assert parse_res.skipped_lines[0]["reason"] == "vcs_url_without_egg"
+
+    # 2. Corrupt pyproject.toml
+    req_file.unlink()
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("invalid [[[ toml content")
+    corrupt_res = service._parse_manifest(tmp_path)
+    assert corrupt_res.packages == []
+
+    await service.close()
+
+
+@pytest.mark.asyncio
+async def test_osv_unexpected_error_and_review_status(tmp_path: Path):
+    service = DependencyHealthService()
+
+    # Unexpected exception in _query_osv
+    with patch.object(service._http, "post", side_effect=Exception("Unexpected OSV failure")):
+        vulns = await service._query_osv("requests", "2.31.0", "PyPI")
+        assert vulns == []
+
+    # Review risk level and Integrity check exception
+    req = tmp_path / "requirements.txt"
+    req.write_text("lib_review==1.0.0\nlib_err==1.0.0\n")
+
+    async def mock_risk(name: str):
+        if name == "lib_review":
+            return {"risk_level": "review", "details": ["Manual review suggested"]}
+        raise RuntimeError("Integrity crash")
+
+    with patch.object(service._integrity_checker, "calculate_risk_score", side_effect=mock_risk), \
+         patch.object(service, "_query_osv", new_callable=AsyncMock, return_value=[]):
+        res = await service.check_manifest(tmp_path)
+        assert len(res.entries) == 2
+        entry_map = {e.name: e for e in res.entries}
+        assert entry_map["lib_review"].status == "ok"
+        assert "Manual review suggested" in entry_map["lib_review"].note
+        assert entry_map["lib_err"].status == "failed_check"
+        assert "Paket doğrulama hatası" in entry_map["lib_err"].note
+
+    await service.close()
+

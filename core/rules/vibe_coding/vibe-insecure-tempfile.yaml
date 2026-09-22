@@ -1,0 +1,10 @@
+rules:
+  - id: vibe-insecure-mktemp
+    severity: WARNING
+    languages: [python]
+    message: "tempfile.mktemp() is deprecated and vulnerable to symlink race conditions. Use tempfile.NamedTemporaryFile() instead."
+    pattern: tempfile.mktemp(...)
+    metadata:
+      category: security
+      cwe: "CWE-377: Insecure Temporary File"
+      confidence: HIGH

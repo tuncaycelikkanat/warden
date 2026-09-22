@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -145,3 +145,53 @@ async def test_orchestrator_run_full_audit_mocked(tmp_path: Path):
         assert result["scorecard"]["total_score"] >= 80
         assert result["scorecard"]["layer1_score"] >= 80
         assert result["scorecard"]["layer2_score"] >= 80
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_incremental_audit(tmp_path: Path):
+    orch = AuditOrchestrator()
+    f1 = tmp_path / "changed.py"
+    f1.write_text("a = 1")
+    f2 = tmp_path / "unchanged.py"
+    f2.write_text("b = 2")
+
+    mock_profile = ProjectProfile(dynamic_categories=[], signature="sig1", catalog_version="v1.0")
+
+    with patch("core.services.git_diff_analyzer.GitDiffAnalyzer.get_changed_files", return_value=[f1]), \
+         patch.object(orch, "_run_l1_scanners", new_callable=AsyncMock) as mock_l1, \
+         patch.object(orch.profiler, "profile", return_value=mock_profile):
+        mock_l1.return_value = ({"coverage": 100.0}, {})
+        res = await orch.run_full_audit(tmp_path, incremental=True, since_commit="HEAD~1")
+        assert "scorecard" in res
+        # Check that changed file was passed to _run_l1_scanners
+        passed_files = mock_l1.call_args[0][1]
+        assert len(passed_files) == 1
+        assert passed_files[0] == f1
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_eval_cat_rate_limit_and_error():
+    import asyncio
+    orch = AuditOrchestrator()
+    sem = asyncio.Semaphore(1)
+
+    # 1. Non-rate-limit evaluation error
+    with patch.object(orch.rubric, "evaluate", side_effect=ValueError("Syntax parsing failed")):
+        verdict = await orch._evaluate_category_with_limit(sem, "api_design", MagicMock())
+        assert verdict.evaluated is False
+        assert "evaluation_error" in verdict.reason
+
+    # 2. Rate limit retry recovery
+    mock_success = RubricVerdict(level=8, justification="Good", cited_evidence=[])
+    with patch.object(orch.rubric, "evaluate", side_effect=[Exception("429 Too Many Requests"), mock_success]):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            verdict = await orch._evaluate_category_with_limit(sem, "api_design", MagicMock())
+            assert verdict.level == 8
+
+    # 3. Rate limit exhausted after 3 attempts
+    with patch.object(orch.rubric, "evaluate", side_effect=Exception("quota exceeded")):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            verdict = await orch._evaluate_category_with_limit(sem, "api_design", MagicMock())
+            assert verdict.evaluated is False
+            assert verdict.reason == "rate_limit_exhausted"
+

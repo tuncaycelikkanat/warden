@@ -199,3 +199,90 @@ def test_docs_scorecard_unmeasured_weight_redistributed():
     scores = sc.calculate({"docs": {"measured": False}}, [])
     assert "documentation" not in scores.breakdown.get("member_scores", {})
 
+
+def test_resolve_interrogate_cmd_fallbacks():
+    import shutil
+    import subprocess
+    from unittest.mock import MagicMock, patch
+
+    svc = DocumentationAnalyzerService()
+
+    # 1. which finds interrogate
+    with patch("shutil.which", side_effect=lambda x: "/bin/interrogate" if x == "interrogate" else None):
+        assert svc._resolve_interrogate_cmd() == ["/bin/interrogate"]
+
+    # 2. python -m interrogate
+    with patch("shutil.which", return_value=None), \
+         patch("pathlib.Path.is_file", return_value=False), \
+         patch("subprocess.run", return_value=MagicMock(returncode=0)):
+        res = svc._resolve_interrogate_cmd()
+        assert res is not None
+        assert "-m" in res and "interrogate" in res
+
+    # 3. uv run interrogate
+    with patch("shutil.which", side_effect=lambda x: "/bin/uv" if x == "uv" else None), \
+         patch("pathlib.Path.is_file", return_value=False), \
+         patch("subprocess.run", return_value=MagicMock(returncode=1)):
+        assert svc._resolve_interrogate_cmd() == ["uv", "run", "interrogate"]
+
+    # 4. Nothing found
+    with patch("shutil.which", return_value=None), \
+         patch("pathlib.Path.is_file", return_value=False), \
+         patch("subprocess.run", return_value=MagicMock(returncode=1)):
+        assert svc._resolve_interrogate_cmd() is None
+
+
+@pytest.mark.asyncio
+async def test_docs_interrogate_unparseable_and_no_files(tmp_path: Path):
+    from unittest.mock import MagicMock, patch
+
+    (tmp_path / "app.py").write_text("print(1)")
+    svc = DocumentationAnalyzerService()
+
+    # "No files to display" -> 100.0%
+    mock_run1 = MagicMock(stdout="No files to display!")
+    with patch("subprocess.run", return_value=mock_run1):
+        cov, measured, reason = svc._run_interrogate(tmp_path)
+        assert cov == 100.0
+        assert measured is True
+
+    # Unparseable output
+    mock_run2 = MagicMock(stdout="Some garbage text without actual percentage")
+    with patch("subprocess.run", return_value=mock_run2):
+        cov2, measured2, reason2 = svc._run_interrogate(tmp_path)
+        assert cov2 is None
+        assert measured2 is False
+        assert reason2 == "interrogate_output_unparseable"
+
+    # Generic exception
+    with patch("subprocess.run", side_effect=OSError("Interrogate crashed")):
+        cov3, measured3, reason3 = svc._run_interrogate(tmp_path)
+        assert measured3 is False
+        assert reason3 == "interrogate_not_found"
+
+
+@pytest.mark.asyncio
+async def test_coverage_analyzer_timeout_and_error(tmp_path: Path):
+    from unittest.mock import AsyncMock, patch
+    from core.infra.sandboxed_executor import SandboxedRunResult
+
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_ok(): assert True")
+
+    svc = TestCoverageAnalyzerService()
+
+    # Timeout in executor
+    timeout_result = SandboxedRunResult(exit_code=-1, stdout="", stderr="timed out", timed_out=True)
+    with patch.object(svc.executor, "run_command", new_callable=AsyncMock, return_value=timeout_result):
+        res = await svc.analyze(tmp_path)
+        assert res.measured is False
+        assert res.reason == "execution_timeout"
+
+    # Exit without creating coverage db
+    exit_result = SandboxedRunResult(exit_code=1, stdout="", stderr="failed")
+    with patch.object(svc.executor, "run_command", new_callable=AsyncMock, return_value=exit_result):
+        res2 = await svc.analyze(tmp_path)
+        assert res2.measured is False
+        assert res2.reason == "no_coverage_data"
+
+

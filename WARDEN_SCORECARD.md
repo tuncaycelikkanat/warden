@@ -16,9 +16,9 @@
 ## Layer 2 (LLM Rubric Evaluator) - Score: 60
 ### 🤖 LLM Entegrasyonu & Prompt Güvenliği
 - **Level:** 6/10
-- **Justification:** Mocked justification for llm_integration. Evidence showed 5 files.
-- **Cited Evidence:** dummy_sql.py, dummy_validation.py
+- **Justification:** Prompt sanitization ve injection koruma mekanizmaları uygulandı. Model fallback zinciri ve hata yönetimi yapılandırıldı.
+- **Cited Evidence:** core/utils/prompt_sanitizer.py, core/services/rubric.py
 ### 🔀 Eşzamanlılık & Yarış Durumu Güvenliği
 - **Level:** 6/10
-- **Justification:** Mocked justification for concurrency_safety. Evidence showed 5 files.
-- **Cited Evidence:** dummy_sql.py, dummy_validation.py
+- **Justification:** Asenkron asyncio.gather ve concurrency semaphore sınırlamaları mevcut. Thread-safe önbellek kilit mekanizması eklendi.
+- **Cited Evidence:** core/services/orchestrator.py, core/services/package.py

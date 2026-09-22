@@ -188,3 +188,32 @@ async def test_tech_debt_unmeasured_on_timeout(tmp_path: Path):
         res = await service.analyze(tmp_path)
         assert res.measured is False
         assert res.reason == "git_log_timeout"
+
+
+@pytest.mark.asyncio
+async def test_tech_debt_shallow_and_git_errors(tmp_path: Path):
+    service = TechDebtService()
+
+    # 1. Shallow repo check
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "shallow").write_text("shallow_commit_id")
+    assert service._has_sufficient_history(tmp_path, "git") is False
+
+    # 2. Invalid date parsing
+    assert service._parse_iso_date("") is None
+    assert service._parse_iso_date("invalid-date-xyz") is None
+
+    # 3. Git binary not found
+    with patch("shutil.which", return_value=None):
+        res_no_git = await service.analyze(tmp_path)
+        assert res_no_git.measured is False
+        assert res_no_git.reason == "git_not_found"
+
+    # 4. Git error in analyze
+    with patch.object(service, "_has_sufficient_history", return_value=True), \
+         patch.object(service, "_run_git_churn", side_effect=RuntimeError("fatal: git error")):
+        res_err = await service.analyze(tmp_path)
+        assert res_err.measured is False
+        assert "git_error" in res_err.reason
+

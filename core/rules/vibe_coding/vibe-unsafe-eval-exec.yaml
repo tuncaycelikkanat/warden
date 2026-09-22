@@ -1,0 +1,15 @@
+rules:
+  - id: vibe-unsafe-eval-exec
+    severity: ERROR
+    languages: [python]
+    message: "Dynamic code execution via eval() or exec() detected — high risk of arbitrary code execution."
+    patterns:
+      - pattern-either:
+          - pattern: eval($ARG, ...)
+          - pattern: exec($ARG, ...)
+      - pattern-not: eval("...")
+      - pattern-not: exec("...")
+    metadata:
+      category: security
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"
+      confidence: HIGH

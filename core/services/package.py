@@ -1,7 +1,6 @@
-"""Service to verify Python package authenticity, downloads, and typosquatting risks."""
-
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -29,28 +28,36 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
 
 
 _top_packages_cache: set[str] | None = None
+_top_packages_lock = threading.Lock()
 
 
 def _get_top_packages() -> set[str]:
-    """Loads and caches top 1000 PyPI package names."""
+    """Loads and caches top 1000 PyPI package names (thread-safe via double-checked locking)."""
     global _top_packages_cache
+    # Fast path — cache zaten doluysa kilit almadan dön
     if _top_packages_cache is not None:
         return _top_packages_cache
 
-    candidates = [
-        Path(__file__).resolve().parent.parent / "data" / "top_pypi_packages.json",
-        Path("core/data/top_pypi_packages.json"),
-    ]
-    for p in candidates:
-        if p.exists():
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    _top_packages_cache = set(json.load(f))
-                    return _top_packages_cache
-            except Exception as e:
-                logger.warning(f"Failed to load top packages from {p}: {e}")
-    _top_packages_cache = set()
-    return _top_packages_cache
+    with _top_packages_lock:
+        # Kilit alındıktan sonra tekrar kontrol et (başka thread doldurmuş olabilir)
+        if _top_packages_cache is not None:
+            return _top_packages_cache
+
+        candidates = [
+            Path(__file__).resolve().parent.parent / "data" / "top_pypi_packages.json",
+            Path("core/data/top_pypi_packages.json"),
+        ]
+        for p in candidates:
+            if p.exists():
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        _top_packages_cache = set(json.load(f))
+                        return _top_packages_cache
+                except Exception as e:
+                    logger.warning(f"Failed to load top packages from {p}: {e}")
+        _top_packages_cache = set()
+        return _top_packages_cache
+
 
 
 class PackageCheckerService:

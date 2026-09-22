@@ -5,6 +5,10 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 from sqlmodel import Session, select
 
@@ -12,6 +16,29 @@ from core.infra.database import engine
 from core.models.audit import AuditReport
 
 logger = logging.getLogger(__name__)
+
+
+def _make_json_safe(obj: Any) -> Any:
+    """Recursively sanitizes data structure so it is guaranteed to be JSON-serializable."""
+    import dataclasses
+    from datetime import date, datetime
+    from pathlib import Path
+
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Path):
+        return str(obj)
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return _make_json_safe(dataclasses.asdict(obj))
+    if hasattr(obj, "__dict__") and not isinstance(obj, type):
+        return _make_json_safe(obj.__dict__)
+    if isinstance(obj, dict):
+        return {str(k): _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_make_json_safe(item) for item in obj]
+    return str(obj)
 
 
 class AuditReportService:
@@ -27,6 +54,8 @@ class AuditReportService:
         l2_raw = scorecard.get("layer2_score")
         l2_val = int(l2_raw) if l2_raw is not None else -1
 
+        safe_raw_data = _make_json_safe(data)
+
         report = AuditReport(
             repo_path=repo_path,
             total_score=scorecard["total_score"],
@@ -39,8 +68,9 @@ class AuditReportService:
             group_structural=gs.get("structural_health"),
             group_resilience=gs.get("resilience_performance"),
             group_dev_hygiene=gs.get("dev_hygiene_devops"),
-            raw_data=data
+            raw_data=safe_raw_data
         )
+
         
         with Session(engine) as session:
             session.add(report)
@@ -80,15 +110,27 @@ class AuditReportService:
             return int(report.id)
 
     def _get_comparison_report(self, repo_path: str, current_id: int | None = None) -> AuditReport | None:
-        """Finds the most meaningful baseline or previous audit report for comparison."""
+        """Finds the most meaningful baseline or previous audit report for comparison.
+
+        Prefers a report explicitly marked as a milestone (is_milestone=True).
+        Falls back to the most recent previous report for the same repo_path.
+        """
         try:
             with Session(engine) as session:
-                # If Report #18 exists in the DB and current_id != 18, use Report #18 as the milestone baseline
-                baseline = session.exec(select(AuditReport).where(AuditReport.id == 18)).first()
-                if baseline and (current_id is None or (current_id is not None and current_id > 18)):
-                    return baseline
+                # 1. Önce bu repo için milestone işaretli raporu dene
+                milestone_query = (
+                    select(AuditReport)
+                    .where(AuditReport.repo_path == repo_path)
+                    .where(AuditReport.is_milestone == True)  # noqa: E712
+                    .order_by(AuditReport.id.desc())  # type: ignore[union-attr]
+                )
+                if current_id is not None:
+                    milestone_query = milestone_query.where(AuditReport.id < current_id)  # type: ignore[operator]
+                milestone = session.exec(milestone_query).first()
+                if milestone:
+                    return milestone
 
-                # Otherwise find the most recent previous report
+                # 2. Milestone yoksa en son önceki raporu kullan
                 query = select(AuditReport).where(AuditReport.repo_path == repo_path)
                 if current_id is not None:
                     query = query.where(AuditReport.id < current_id)  # type: ignore[operator]
@@ -239,14 +281,26 @@ class AuditReportService:
         for cat in curr_l2_cats:
             cat_key = cat.get("category", "")
             cat_label = cat.get("label", cat_key)
-            verdict = cat.get("rubric_verdict", {})
-            lvl = verdict.get("level", 0)
-            score_100 = lvl * 10.0
-            just = verdict.get("justification", "").replace("\n", " ")
-            just_short = (just[:90] + "...") if len(just) > 90 else just
+            verdict = cat.get("rubric_verdict") or {}
+            lvl = verdict.get("level")
             prev_lvl_100 = prev_l2_dict.get(cat_key)
+            just = (verdict.get("justification") or "").replace("\n", " ")
+            just_short = (just[:90] + "...") if len(just) > 90 else just
+
+            if lvl is not None:
+                score_100 = lvl * 10.0
+                lvl_str = f"**L{lvl} ({score_100:.0f})**"
+                delta_str = self._fmt_delta(score_100, prev_lvl_100)
+                status_str = self._fmt_status(score_100)
+            else:
+                score_100 = None
+                lvl_str = "— (Ölçülmedi)"
+                delta_str = "—"
+                status_str = "⚪ Ölçülmedi"
+
             prev_lvl_str = f"L{int(prev_lvl_100/10)} ({prev_lvl_100:.0f})" if prev_lvl_100 is not None else "—"
-            md.append(f"| **{cat_label}** | 0-10 Çapa | {prev_lvl_str} | **L{lvl} ({score_100:.0f})** | {self._fmt_delta(score_100, prev_lvl_100)} | {self._fmt_status(score_100)} | {just_short} |")
+            md.append(f"| **{cat_label}** | 0-10 Çapa | {prev_lvl_str} | {lvl_str} | {delta_str} | {status_str} | {just_short} |")
+
 
         return md
 
@@ -326,14 +380,10 @@ class AuditReportService:
 
     def _call_gemini_report(self, client: Any, prompt: str) -> str:
         """Invokes Gemini models using a prioritized fallback pool."""
-        models_to_try = [
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-flash-latest",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
-        ]
+        from core.config.llm_config import DEFAULT_GEMINI_MODELS
+        models_to_try = list(DEFAULT_GEMINI_MODELS)
         last_err = None
+
         for model_name in models_to_try:
             try:
                 response = client.models.generate_content(

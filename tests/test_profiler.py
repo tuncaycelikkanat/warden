@@ -186,3 +186,39 @@ def test_directory_collision_prevention(tmp_path: Path):
     keys = [c.key for c in profile.dynamic_categories]
     assert "quantitative_logic" not in keys
 
+
+def test_directory_signal_all_of(tmp_path: Path):
+    from core.services.profiler import DirectorySignal
+
+    d1 = tmp_path / "routes"
+    d1.mkdir()
+    d2 = tmp_path / "controllers"
+    d2.mkdir()
+
+    sig = DirectorySignal(all_of=["routes", "controllers"])
+    match = sig.evaluate(tmp_path, {})
+    assert match.matched is True
+    assert len(match.evidence) == 2
+
+    # If one is missing
+    sig_missing = DirectorySignal(all_of=["routes", "missing_dir"])
+    assert sig_missing.evaluate(tmp_path, {}).matched is False
+
+
+def test_source_pattern_signal_oserror(tmp_path: Path):
+    from unittest.mock import patch
+    from core.services.profiler import SourcePatternSignal
+
+    f = tmp_path / "test.py"
+    f.write_text("pattern_here")
+
+    sig = SourcePatternSignal(any_of=["pattern_here"])
+    # Normal match
+    assert sig.evaluate(tmp_path, {}).matched is True
+
+    # OSError on read_text
+    with patch("pathlib.Path.read_text", side_effect=OSError("Permission denied")):
+        match = sig.evaluate(tmp_path, {})
+        assert match.matched is False
+
+

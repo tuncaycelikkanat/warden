@@ -235,3 +235,44 @@ def test_scorecard_redistribution_when_not_applicable():
     # Expected weighted score: (80*(3/7) + 100*(2/7) + 90*(1/7)) / (6/7) = (240 + 200 + 90)/6 = 530/6 = 88.33
     assert group_scores["dev_hygiene_devops"] == 88.33
 
+
+@pytest.mark.asyncio
+async def test_docker_subdirectory_and_comments(tmp_path: Path):
+    sub = tmp_path / "backend"
+    sub.mkdir()
+    df = sub / "Dockerfile"
+    df.write_text(
+        "FROM python:3.12-slim AS build # base stage\n"
+        "FROM python:3.12-slim\n"
+        "HEALTHCHECK --interval=30s CMD curl -f http://localhost:8000/health # hc\n"
+        "USER appuser # non-root\n"
+    )
+
+    service = DockerReadinessService()
+    res = await service.analyze(tmp_path)
+    assert res.has_dockerfile is True
+    assert res.has_healthcheck is True
+    assert res.has_non_root_user is True
+    assert res.has_multistage is True
+    assert res.dockerfile_path == "backend/Dockerfile"
+
+
+def test_docker_parse_oserror(tmp_path: Path):
+    from unittest.mock import patch
+
+    service = DockerReadinessService()
+    df = tmp_path / "Dockerfile"
+    df.write_text("FROM alpine")
+
+    with patch("pathlib.Path.read_text", side_effect=OSError("Read error")):
+        hc, user, multi = service._parse_dockerfile(df)
+        assert hc is False
+        assert user is False
+        assert multi is False
+
+    env_file = tmp_path / ".env.example"
+    env_file.write_text("FOO=BAR")
+    with patch("pathlib.Path.read_text", side_effect=OSError("Read error")):
+        assert service._check_env_example(tmp_path) is False
+
+

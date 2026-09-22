@@ -1,0 +1,48 @@
+# WARDEN — Project Configuration File
+# Autonomous Security & Architectural Quality Governance Engine
+
+version: 1
+profile: auto  # auto | web_api:fastapi | cli | data_pipeline | ...
+
+# Quality Gate & Weighting
+scoring:
+  layer1_weight: 0.60  # Mechanical scanners (Semgrep, Gitleaks, Radon, Ruff, etc.)
+  layer2_weight: 0.40  # Dynamic LLM rubric architectural evaluations
+  min_score_gate: 70   # Fails CI/CD with exit code 1 if total score is below this threshold
+
+  # Custom weights for dynamic Layer 2 architectural categories
+  category_weights:
+    architectural_discipline: 2.0
+    llm_integration: 1.5
+    concurrency_safety: 1.5
+    api_design: 1.2
+    devops_deployment: 1.0
+    frontend_ux: 1.0
+    quantitative_logic: 1.2
+
+# Quality & Health Targets
+thresholds:
+  min_coverage: 80.0
+  max_complexity: 10.0
+  max_duplication_pct: 5.0
+  min_docstring_pct: 80.0
+
+# LLM Runtime for Rubrics
+llm:
+  provider: gemini  # gemini | openai | deepseek | groq | openrouter
+  models:
+    - gemini-2.5-flash
+    - gemini-2.5-flash-lite
+    - gemini-2.0-flash
+  temperature: 0.0
+  timeout_sec: 60
+
+# Ignore Rules & Paths
+ignore:
+  paths:
+    - .venv/
+    - build/
+    - dist/
+    - node_modules/
+    - fixtures/
+  rules: []

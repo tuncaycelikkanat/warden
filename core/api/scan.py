@@ -63,20 +63,29 @@ async def run_audit(request: AuditRequest):
     """Runs complete 2-layer WARDEN audit against target repository."""
     if not os.path.exists(request.repo_path):
         raise HTTPException(status_code=404, detail="Repo not found")
-        
+
+    from core.utils.path_validator import validate_audit_path
     from core.services.orchestrator import AuditOrchestrator
     from core.services.report import AuditReportService
     
+    try:
+        validated_path = validate_audit_path(request.repo_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+        
     orch = AuditOrchestrator()
-    res = await orch.run_full_audit(request.repo_path)
+    res = await orch.run_full_audit(str(validated_path))
     
     reporter = AuditReportService()
-    db_id = reporter.save_to_db(request.repo_path, res)
-    md_path = reporter.generate_markdown(request.repo_path, res)
+    db_id = reporter.save_to_db(str(validated_path), res)
+    md_path = reporter.generate_markdown(str(validated_path), res, current_id=db_id)
     
     return {
         "status": "success",
         "scorecard": res["scorecard"],
         "md_path": md_path,
-        "db_id": db_id
+        "db_id": db_id,
+        "repo_path": str(validated_path)
     }
+
