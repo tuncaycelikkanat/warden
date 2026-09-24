@@ -4,8 +4,6 @@ import json
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import core.infra.cache as cache_mod
 from core.infra.cache import InMemoryCache, RedisCache, get_cache
 

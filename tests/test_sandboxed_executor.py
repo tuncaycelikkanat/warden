@@ -1,12 +1,11 @@
 """Unit tests for SandboxedTestExecutor verifying OS limits, Docker fallback, and timeout isolation."""
 
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.infra.sandboxed_executor import SandboxedRunResult, SandboxedTestExecutor
+from core.infra.sandboxed_executor import SandboxedTestExecutor
 
 
 def test_is_docker_available_no_binary():

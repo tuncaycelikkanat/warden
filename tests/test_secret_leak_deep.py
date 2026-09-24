@@ -1,13 +1,14 @@
 """Comprehensive tests for SecretLeakScannerService edge cases and false-positive filter logic."""
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from core.services.secret_leak import (
+    HIGH_CONFIDENCE_MOCK_TOKENS,
     SecretLeakScannerService,
     _contains_word,
     _is_in_test_context,
-    HIGH_CONFIDENCE_MOCK_TOKENS,
 )
 
 

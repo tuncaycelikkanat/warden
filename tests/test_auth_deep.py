@@ -1,9 +1,8 @@
 """Unit tests for JWT Authentication and RBAC."""
 
-import time
+import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-import pytest
 
 import core.api.auth as auth_mod
 from core.api.auth import (
@@ -49,7 +48,8 @@ def test_jwt_token_invalid_payload():
     # Build token with non-JSON payload
     h = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
     p = "bm90LWpzb24"  # "not-json"
-    import hashlib, hmac
+    import hashlib
+    import hmac
     sig = auth_mod._b64encode(hmac.new(auth_mod.JWT_SECRET.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest())
     bad_token = f"{h}.{p}.{sig}"
     with pytest.raises(HTTPException) as exc:

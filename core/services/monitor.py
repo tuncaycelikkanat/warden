@@ -3,7 +3,6 @@
 import re
 from typing import Any
 
-
 # Tehlikeli komut kategorileri ve desenleri
 # Her tuple: (regex_pattern, human_readable_reason, severity)
 _DANGEROUS_PATTERNS: list[tuple[str, str, str]] = [

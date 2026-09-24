@@ -1,6 +1,7 @@
 """Comprehensive unit tests for PackageCheckerService logic, metrics, and caching."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
+
 import httpx
 import pytest
 

@@ -17,22 +17,18 @@ class BaseCache(ABC):
     @abstractmethod
     def get(self, key: str) -> Any | None:
         """Retrieves a cached value by key."""
-        pass
 
     @abstractmethod
     def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> None:
         """Stores a value with a time-to-live in seconds."""
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> None:
         """Deletes a key from cache."""
-        pass
 
     @abstractmethod
     def clear(self) -> None:
         """Clears all cached entries."""
-        pass
 
 
 class InMemoryCache(BaseCache):

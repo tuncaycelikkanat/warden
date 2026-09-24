@@ -1,7 +1,8 @@
 """Comprehensive tests for CommitHygieneService edge cases and git log handling."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from core.services.commit_hygiene import CommitHygieneService
@@ -61,11 +62,10 @@ async def test_commit_hygiene_analyzer_git_errors(tmp_path: Path):
 
     # Non-zero returncode (e.g. not a git repo)
     proc_mock = MagicMock(returncode=128, stdout="", stderr="fatal: not a git repository")
-    with patch("shutil.which", return_value="/usr/bin/git"):
-        with patch("subprocess.run", return_value=proc_mock):
-            res = await analyzer.analyze(tmp_path)
-            assert res.measured is False
-            assert res.reason == "not_a_git_repository"
+    with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", return_value=proc_mock):
+        res = await analyzer.analyze(tmp_path)
+        assert res.measured is False
+        assert res.reason == "not_a_git_repository"
 
 
 @pytest.mark.asyncio
@@ -82,10 +82,9 @@ async def test_commit_hygiene_log_parsing_and_bot_skipping(tmp_path: Path):
     ]
     proc_mock = MagicMock(returncode=0, stdout="\n".join(stdout_lines), stderr="")
 
-    with patch("shutil.which", return_value="/usr/bin/git"):
-        with patch("subprocess.run", return_value=proc_mock):
-            res = await analyzer.analyze(tmp_path)
-            # Only 2 human commits, so insufficient commits (< 5)
-            assert res.measured is False
-            assert res.reason == "insufficient_commit_sample"
-            assert res.total_commits == 2
+    with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", return_value=proc_mock):
+        res = await analyzer.analyze(tmp_path)
+        # Only 2 human commits, so insufficient commits (< 5)
+        assert res.measured is False
+        assert res.reason == "insufficient_commit_sample"
+        assert res.total_commits == 2

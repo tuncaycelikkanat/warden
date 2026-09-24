@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import Session, select
 
 from core.infra.database import engine
-from core.models.audit import AuditReport, AuditCoreMember
+from core.models.audit import AuditCoreMember, AuditReport
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -39,7 +39,7 @@ def _report_to_dict(r: AuditReport) -> dict[str, Any]:
 async def list_repos() -> dict[str, Any]:
     """Returns all audited repository paths with their latest score."""
     with Session(engine) as session:
-        reports = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).all()  # type: ignore[call-overload]
+        reports = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).all()  # type: ignore[call-overload,union-attr]
 
     # Group by repo_path, keep latest
     seen: dict[str, dict[str, Any]] = {}
@@ -64,7 +64,7 @@ async def get_trend_for_repo(
         history = session.exec(
             select(AuditReport)
             .where(AuditReport.repo_path == anchor.repo_path)
-            .order_by(AuditReport.id.desc())  # type: ignore[call-overload]
+            .order_by(AuditReport.id.desc())  # type: ignore[call-overload,union-attr]
             .limit(limit)
         ).all()
 
@@ -84,7 +84,7 @@ async def get_trend(
         history = session.exec(
             select(AuditReport)
             .where(AuditReport.repo_path == repo_path)
-            .order_by(AuditReport.id.desc())  # type: ignore[call-overload]
+            .order_by(AuditReport.id.desc())  # type: ignore[call-overload,union-attr]
             .limit(limit)
         ).all()
 
@@ -142,7 +142,7 @@ async def compare_reports(id_a: int, id_b: int) -> dict[str, Any]:
     if not rep_b:
         raise HTTPException(status_code=404, detail=f"Report {id_b} not found")
 
-    def _delta(a: float | int | None, b: float | int | None) -> float | None:
+    def _delta(a: float | None, b: float | None) -> float | None:
         if a is None or b is None:
             return None
         return round(float(b) - float(a), 2)
@@ -176,7 +176,7 @@ async def get_summary(
     """Returns a high-level summary: latest audit per repo + overall health stats."""
     with Session(engine) as session:
         all_reports = session.exec(
-            select(AuditReport).order_by(AuditReport.id.desc())  # type: ignore[call-overload]
+            select(AuditReport).order_by(AuditReport.id.desc())  # type: ignore[call-overload,union-attr]
         ).all()
 
     # Latest per repo

@@ -1,7 +1,7 @@
 """Comprehensive tests for TestCoverageAnalyzerService and DocumentationAnalyzerService edge cases."""
 from pathlib import Path
-import subprocess
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 from core.infra.sandboxed_executor import SandboxedRunResult

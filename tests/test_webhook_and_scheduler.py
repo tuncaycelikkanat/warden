@@ -1,13 +1,12 @@
 """Unit tests for WebhookService and AuditScheduler."""
 
 import asyncio
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
-from core.services.scheduler import AuditScheduler, ScheduledJob
+from core.services.scheduler import AuditScheduler
 from core.services.webhook_service import WebhookService
 
 

@@ -7,7 +7,8 @@ import json
 import logging
 import os
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -48,7 +49,7 @@ def create_access_token(
 
     h_b64 = _b64encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
     p_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
-    signing_input = f"{h_b64}.{p_b64}".encode("utf-8")
+    signing_input = f"{h_b64}.{p_b64}".encode()
 
     sig = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
     sig_b64 = _b64encode(sig)
@@ -67,7 +68,7 @@ def verify_access_token(token: str, secret: str = JWT_SECRET) -> dict[str, Any]:
         )
 
     h_b64, p_b64, sig_b64 = parts
-    signing_input = f"{h_b64}.{p_b64}".encode("utf-8")
+    signing_input = f"{h_b64}.{p_b64}".encode()
     expected_sig = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
     expected_sig_b64 = _b64encode(expected_sig)
 

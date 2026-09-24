@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.services.regression_detector import RegressionDetector, REGRESSION_THRESHOLD
+from core.services.regression_detector import RegressionDetector
 
 
 @pytest.fixture

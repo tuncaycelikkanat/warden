@@ -8,6 +8,6 @@ from core.llm.openai_provider import OpenAICompatibleProvider
 __all__ = [
     "BaseLLMProvider",
     "GeminiProvider",
-    "OpenAICompatibleProvider",
     "LLMProviderFactory",
+    "OpenAICompatibleProvider",
 ]

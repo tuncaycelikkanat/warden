@@ -132,7 +132,7 @@ async def test_openai_provider_fallback_and_all_fail():
     # All models fail
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.side_effect = httpx.ConnectError("Network unreachable")
-        with pytest.raises(Exception):
+        with pytest.raises(httpx.ConnectError):
             await provider.generate_json("prompt", "system")
 
 

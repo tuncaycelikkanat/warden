@@ -1,11 +1,10 @@
 """Tests for path traversal and audit target validation."""
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from core.utils.path_validator import validate_audit_path, FORBIDDEN_PATH_PREFIXES
+from core.utils.path_validator import validate_audit_path
 
 
 class TestValidateAuditPath:

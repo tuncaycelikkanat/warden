@@ -1,6 +1,7 @@
 """Tests for caching infrastructure."""
 
 import time
+
 import pytest
 
 from core.infra.cache import InMemoryCache, RedisCache, get_cache

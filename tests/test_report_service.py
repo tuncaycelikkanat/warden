@@ -1,6 +1,7 @@
 """Comprehensive unit tests for AuditReportService and report formatting."""
 
 import dataclasses
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -109,7 +110,7 @@ def test_save_to_db_and_get_comparison_report(tmp_path):
     create_db_and_tables()
     svc = AuditReportService()
 
-    repo_str = str(tmp_path / "repo_report_test")
+    repo_str = str(tmp_path / f"repo_report_test_{uuid.uuid4().hex}")
 
     data = {
         "profile_signature": "sig_test_1",
@@ -240,7 +241,7 @@ def test_build_comparison_scorecard_comprehensive(tmp_path):
     create_db_and_tables()
     svc = AuditReportService()
 
-    repo_str = str(tmp_path / "repo_full_matrix")
+    repo_str = str(tmp_path / f"repo_full_matrix_{uuid.uuid4().hex}")
 
     # Previous baseline report
     prev_data = {

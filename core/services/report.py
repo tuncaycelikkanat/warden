@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -121,7 +122,7 @@ class AuditReportService:
                 milestone_query = (
                     select(AuditReport)
                     .where(AuditReport.repo_path == repo_path)
-                    .where(AuditReport.is_milestone == True)  # noqa: E712
+                    .where(AuditReport.is_milestone == True)
                     .order_by(AuditReport.id.desc())  # type: ignore[union-attr]
                 )
                 if current_id is not None:

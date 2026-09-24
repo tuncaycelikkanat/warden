@@ -17,3 +17,6 @@ ignore = [
     "SIM102",
     "B008",
 ]
+
+[lint.per-file-ignores]
+"tests/*" = ["SIM117", "RUF059", "DTZ005", "DTZ011", "F841"]

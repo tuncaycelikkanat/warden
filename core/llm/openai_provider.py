@@ -2,7 +2,6 @@
 
 import logging
 import os
-from typing import Any
 
 import httpx
 
@@ -20,8 +19,9 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         base_url: str | None = None,
         models: list[str] | None = None,
     ) -> None:
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = (base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+        self.api_key: str = api_key or os.getenv("OPENAI_API_KEY") or ""
+        raw_url = base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        self.base_url: str = raw_url.rstrip("/")
         self.models = models or ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
 
     def is_configured(self) -> bool:
@@ -43,7 +43,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             raise ValueError("OPENAI_API_KEY is not configured")
 
         models_to_try = [model] if model else self.models
-        last_err = None
+        last_err: Exception | None = None
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

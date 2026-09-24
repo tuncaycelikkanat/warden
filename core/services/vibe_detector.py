@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 # Common AI commentary patterns
 _AI_COMMENT_PATTERNS = [
-    (re.compile(r"#\s*(import\s+(all\s+)?(necessary|required)\s+(modules|packages|libraries))", re.I), "Didactic import commentary", 3.0),
-    (re.compile(r"#\s*(helper\s+function\s+to|function\s+to\s+\w+)", re.I), "Obvious function commentary", 2.0),
-    (re.compile(r"#\s*(in\s+production,\s+(you\s+should|replace|use|implement))", re.I), "LLM production disclaimer comment", 4.0),
-    (re.compile(r"#\s*(replace\s+(this\s+)?with\s+your\s+(actual\s+)?(api_?key|token|secret|url))", re.I), "Placeholder token commentary", 4.0),
-    (re.compile(r"#\s*(note:\s*(this\s+is\s+a\s+(mock|simple|basic)|make\s+sure\s+to))", re.I), "LLM explanatory note", 3.0),
-    (re.compile(r"#\s*(step\s+\d+:\s*\w+)", re.I), "Step-by-step procedural commentary", 2.0),
-    (re.compile(r"```(?:python|json|bash)?", re.I), "Markdown codeblock residue in code", 5.0),
+    (re.compile(r"#\s*(import\s+(all\s+)?(necessary|required)\s+(modules|packages|libraries))", re.IGNORECASE), "Didactic import commentary", 3.0),
+    (re.compile(r"#\s*(helper\s+function\s+to|function\s+to\s+\w+)", re.IGNORECASE), "Obvious function commentary", 2.0),
+    (re.compile(r"#\s*(in\s+production,\s+(you\s+should|replace|use|implement))", re.IGNORECASE), "LLM production disclaimer comment", 4.0),
+    (re.compile(r"#\s*(replace\s+(this\s+)?with\s+your\s+(actual\s+)?(api_?key|token|secret|url))", re.IGNORECASE), "Placeholder token commentary", 4.0),
+    (re.compile(r"#\s*(note:\s*(this\s+is\s+a\s+(mock|simple|basic)|make\s+sure\s+to))", re.IGNORECASE), "LLM explanatory note", 3.0),
+    (re.compile(r"#\s*(step\s+\d+:\s*\w+)", re.IGNORECASE), "Step-by-step procedural commentary", 2.0),
+    (re.compile(r"```(?:python|json|bash)?", re.IGNORECASE), "Markdown codeblock residue in code", 5.0),
 ]
 
 

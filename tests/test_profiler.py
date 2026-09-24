@@ -207,6 +207,7 @@ def test_directory_signal_all_of(tmp_path: Path):
 
 def test_source_pattern_signal_oserror(tmp_path: Path):
     from unittest.mock import patch
+
     from core.services.profiler import SourcePatternSignal
 
     f = tmp_path / "test.py"

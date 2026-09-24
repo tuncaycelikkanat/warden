@@ -1,8 +1,6 @@
 """Comprehensive unit tests for ScorecardAggregatorService edge cases and dataclass handling."""
 
 from dataclasses import dataclass
-from pathlib import Path
-import pytest
 
 from core.services.scorecard import ScorecardAggregatorService
 

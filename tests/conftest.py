@@ -1,6 +1,7 @@
 """Global pytest configuration and fixtures for WARDEN test suite."""
 
 import pytest
+
 from core.infra.database import create_db_and_tables
 
 

@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,6 +36,7 @@ app.include_router(dashboard_router)
 
 
 import time
+
 _APP_START_TIME = time.time()
 
 
@@ -58,7 +60,9 @@ async def health_check():
 async def get_metrics():
     """Observability endpoint providing operational metrics and health status."""
     import shutil
+
     from sqlmodel import Session, select
+
     from core.infra.cache import get_cache
     from core.infra.database import engine
     from core.models.audit import AuditReport
@@ -312,7 +316,7 @@ def _run_milestone_command(audit_id: int, label: str, clear: bool) -> None:
             session.add(report)
             session.commit()
             print(f"[✓] Audit #{audit_id} milestone olarak işaretlendi: '{label}'")
-            print(f"    Karşılaştırma raporları artık bu audit'i referans olarak kullanacak.")
+            print("    Karşılaştırma raporları artık bu audit'i referans olarak kullanacak.")
 
 
 if __name__ == "__main__":

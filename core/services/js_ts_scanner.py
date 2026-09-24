@@ -13,7 +13,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from core.services.evidence.base import safe_read_file
 
@@ -74,7 +74,7 @@ class JsTsScanResult:
 class JsTsScannerService:
     """Scans JavaScript & TypeScript files, package.json and tsconfig.json."""
 
-    JS_TS_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
+    JS_TS_EXTENSIONS: ClassVar[set[str]] = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 
     def scan(self, repo_path: Path, files: list[Path] | None = None) -> JsTsScanResult:
         """Executes full JS/TS analysis on the repository."""
@@ -133,7 +133,7 @@ class JsTsScannerService:
             try:
                 raw_tsconfig = safe_read_file(tsconfig_json)
                 # Remove json comments if any
-                clean_json = re.sub(r"//.*?\n|/\*.*?\*/", "", raw_tsconfig, flags=re.S)
+                clean_json = re.sub(r"//.*?\n|/\*.*?\*/", "", raw_tsconfig, flags=re.DOTALL)
                 ts_data = json.loads(clean_json)
                 co = ts_data.get("compilerOptions", {})
                 if co.get("strict") is True:
@@ -153,8 +153,8 @@ class JsTsScannerService:
                 pass
 
         # 3. Source code inspections (.js, .jsx, .ts, .tsx)
-        inner_html_re = re.compile(r"\binnerHTML\s*=", re.I)
-        console_log_re = re.compile(r"\bconsole\.(log|debug)\s*\(", re.I)
+        inner_html_re = re.compile(r"\binnerHTML\s*=", re.IGNORECASE)
+        console_log_re = re.compile(r"\bconsole\.(log|debug)\s*\(", re.IGNORECASE)
         any_type_re = re.compile(r"(:\s*any\b|\bas\s+any\b)")
 
         for f in js_ts_files:

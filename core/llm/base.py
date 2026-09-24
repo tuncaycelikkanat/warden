@@ -1,7 +1,6 @@
 """Base abstract class for LLM providers in WARDEN."""
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class BaseLLMProvider(ABC):
@@ -10,12 +9,10 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def is_configured(self) -> bool:
         """Returns True if the required API keys or endpoints are configured."""
-        pass
 
     @abstractmethod
     def get_default_models(self) -> list[str]:
         """Returns ordered fallback list of model names."""
-        pass
 
     @abstractmethod
     async def generate_json(
@@ -31,4 +28,3 @@ class BaseLLMProvider(ABC):
         Returns:
             tuple of (raw_response_text, model_name_used)
         """
-        pass

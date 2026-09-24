@@ -1,4 +1,5 @@
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from core.main import app

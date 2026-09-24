@@ -223,8 +223,6 @@ def test_cc_to_rank_all_grades():
 
 
 def test_resolve_radon_cmd_fallbacks(tmp_path: Path):
-    import shutil
-    import subprocess
     from unittest.mock import MagicMock, patch
 
     svc = CodeComplexityService()
@@ -243,13 +241,11 @@ def test_resolve_radon_cmd_fallbacks(tmp_path: Path):
     # 3. Not found raises FileNotFoundError
     with patch("shutil.which", return_value=None), \
          patch("pathlib.Path.is_file", return_value=False), \
-         patch("importlib.util.find_spec", return_value=None):
-        with pytest.raises(FileNotFoundError):
-            svc._resolve_radon_cmd(tmp_path)
+         patch("importlib.util.find_spec", return_value=None), pytest.raises(FileNotFoundError):
+        svc._resolve_radon_cmd(tmp_path)
 
 
 def test_resolve_ruff_cmd_fallbacks():
-    import shutil
     from unittest.mock import patch
 
     svc = LintStyleService()

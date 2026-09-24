@@ -1,10 +1,11 @@
 """Comprehensive unit tests for TypeSafetyService."""
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import pytest
 
-from core.services.type_safety import TypeSafetyService, TypeSafetyResult
+from core.services.type_safety import TypeSafetyService
 
 
 def test_resolve_mypy_cmd_fallbacks(tmp_path: Path):
@@ -16,11 +17,10 @@ def test_resolve_mypy_cmd_fallbacks(tmp_path: Path):
         assert cmd == ["/usr/bin/mypy"]
 
     # Case 2: venv binary exists
-    with patch("shutil.which", return_value=None):
-        with patch.object(Path, "exists", return_value=True):
-            cmd = analyzer._resolve_mypy_cmd()
-            assert len(cmd) == 1
-            assert cmd[0].endswith("mypy")
+    with patch("shutil.which", return_value=None), patch.object(Path, "exists", return_value=True):
+        cmd = analyzer._resolve_mypy_cmd()
+        assert len(cmd) == 1
+        assert cmd[0].endswith("mypy")
 
     # Case 3: uv is available
     with patch("shutil.which", side_effect=lambda name: "/usr/bin/uv" if name == "uv" else None):
@@ -29,10 +29,9 @@ def test_resolve_mypy_cmd_fallbacks(tmp_path: Path):
             assert cmd == ["uv", "run", "mypy"]
 
     # Case 4: Nothing is available
-    with patch("shutil.which", return_value=None):
-        with patch.object(Path, "exists", return_value=False):
-            cmd = analyzer._resolve_mypy_cmd()
-            assert cmd == []
+    with patch("shutil.which", return_value=None), patch.object(Path, "exists", return_value=False):
+        cmd = analyzer._resolve_mypy_cmd()
+        assert cmd == []
 
 
 @pytest.mark.asyncio

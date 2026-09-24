@@ -1,12 +1,11 @@
 """Comprehensive unit tests for core/main.py CLI and FastAPI endpoints."""
 
 import sys
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 from core.main import _run_audit_command, _run_milestone_command, app, cli
 from core.models.audit import AuditReport

@@ -64,9 +64,9 @@ async def run_audit(request: AuditRequest):
     if not os.path.exists(request.repo_path):
         raise HTTPException(status_code=404, detail="Repo not found")
 
-    from core.utils.path_validator import validate_audit_path
     from core.services.orchestrator import AuditOrchestrator
     from core.services.report import AuditReportService
+    from core.utils.path_validator import validate_audit_path
     
     try:
         validated_path = validate_audit_path(request.repo_path)

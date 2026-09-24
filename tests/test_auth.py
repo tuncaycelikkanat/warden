@@ -1,6 +1,5 @@
 """Tests for JWT authentication and RBAC."""
 
-import time
 import pytest
 from fastapi import HTTPException
 

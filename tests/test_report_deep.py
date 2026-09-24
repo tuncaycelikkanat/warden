@@ -1,7 +1,6 @@
 """Comprehensive tests for AuditReportService markdown generation and database persistence edge cases."""
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import patch
 
 from core.services.report import AuditReportService, _make_json_safe
 

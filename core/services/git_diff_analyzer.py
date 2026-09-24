@@ -73,4 +73,4 @@ class GitDiffAnalyzer:
             except Exception as e:
                 logger.warning(f"Failed to list untracked files: {e}")
 
-        return sorted(list(changed))
+        return sorted(changed)

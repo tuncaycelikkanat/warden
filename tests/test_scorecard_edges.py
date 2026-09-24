@@ -1,5 +1,6 @@
 """Comprehensive tests for ScorecardAggregatorService edge cases and formula branches."""
 from types import SimpleNamespace
+
 from core.services.scorecard import ScorecardAggregatorService
 
 

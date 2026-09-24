@@ -1,6 +1,5 @@
 """Comprehensive tests for LicenseComplianceService edge cases, heuristics, and compatibility."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

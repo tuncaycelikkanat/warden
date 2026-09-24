@@ -201,8 +201,6 @@ def test_docs_scorecard_unmeasured_weight_redistributed():
 
 
 def test_resolve_interrogate_cmd_fallbacks():
-    import shutil
-    import subprocess
     from unittest.mock import MagicMock, patch
 
     svc = DocumentationAnalyzerService()
@@ -264,6 +262,7 @@ async def test_docs_interrogate_unparseable_and_no_files(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_coverage_analyzer_timeout_and_error(tmp_path: Path):
     from unittest.mock import AsyncMock, patch
+
     from core.infra.sandboxed_executor import SandboxedRunResult
 
     (tmp_path / "tests").mkdir()

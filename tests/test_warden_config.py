@@ -1,11 +1,8 @@
 """Tests for WARDEN configuration loading and weighted scorecard aggregation."""
 
-import tempfile
 from pathlib import Path
 
-import pytest
-
-from core.config.warden_config import WardenConfig, DEFAULT_CATEGORY_WEIGHTS
+from core.config.warden_config import WardenConfig
 from core.services.scorecard import ScorecardAggregatorService
 
 

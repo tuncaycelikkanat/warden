@@ -1,7 +1,8 @@
 """Unit tests for RepoLicenseDetector."""
 
 from pathlib import Path
-from core.services.repo_license_detector import RepoLicenseDetector, LICENSE_CATEGORY_MAP
+
+from core.services.repo_license_detector import RepoLicenseDetector
 
 
 def test_match_text_to_spdx():
