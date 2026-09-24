@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WARDEN — Autonomous Security & Architectural Quality Governance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              900: '#14532d',
+            },
+            dark: {
+              bg: '#0b0f19',
+              card: '#111827',
+              border: '#1f2937',
+              hover: '#1e293b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b0f19; font-family: system-ui, -apple-system, sans-serif; }
+    .grade-A-plus { color: #4ade80; border-color: #4ade80; }
+    .grade-A { color: #22c55e; border-color: #22c55e; }
+    .grade-B { color: #60a5fa; border-color: #60a5fa; }
+    .grade-C { color: #facc15; border-color: #facc15; }
+    .grade-D { color: #fb923c; border-color: #fb923c; }
+    .grade-F { color: #f87171; border-color: #f87171; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+  <!-- Navbar -->
+  <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🛡️</span>
+        <div>
+          <span class="text-xl font-bold tracking-tight text-white">WARDEN</span>
+          <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">Governance Engine</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span id="systemStatus" class="inline-flex items-center text-xs text-gray-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+          API Bağlantısı Aktif
+        </span>
+        <button onclick="openScanModal()" class="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-sm transition flex items-center space-x-1.5">
+          <span>+</span>
+          <span>Yeni Proje Tara</span>
+        </button>
+        <a href="/docs" target="_blank" class="text-xs text-gray-400 hover:text-gray-200 transition">Swagger API</a>
+        <button onclick="fetchSummary()" class="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition">
+          Yenile ↻
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <!-- Top KPI Summary Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">İzlenen Depolar</div>
+        <div class="mt-2 text-3xl font-extrabold text-white" id="statTotalRepos">-</div>
+        <div class="text-xs text-gray-500 mt-1">Aktif kod tabanları</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Toplam Denetim</div>
+        <div class="mt-2 text-3xl font-extrabold text-white" id="statTotalAudits">-</div>
+        <div class="text-xs text-gray-500 mt-1">Kaydedilen Karne Sayısı</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Ortalama Puan</div>
+        <div class="mt-2 text-3xl font-extrabold text-emerald-400" id="statAvgScore">-</div>
+        <div class="text-xs text-gray-500 mt-1">Son denetimler ortalaması</div>
+      </div>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Kalite Dağılımı</div>
+        <div class="mt-2 text-xl font-bold flex items-center space-x-2" id="statGradeDistribution">-</div>
+        <div class="text-xs text-gray-500 mt-1">Harf notu frekansı</div>
+      </div>
+    </section>
+
+    <!-- Main Grid: Repo Selector & Latest Audit Detail -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Left Column: Repositories list -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-gray-200 uppercase tracking-wider">Depolar & Projeler</h2>
+            <span class="text-xs text-gray-500" id="repoCountLabel">0 depo</span>
+          </div>
+          <button onclick="openScanModal()" class="px-2.5 py-1 text-xs font-semibold bg-emerald-600/90 hover:bg-emerald-500 text-white rounded transition shadow-sm">
+            + Yeni Tara
+          </button>
+        </div>
+
+        <div id="repoList" class="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+          <div class="text-xs text-gray-500 py-4 text-center">Yükleniyor...</div>
+        </div>
+      </div>
+
+      <!-- Right Column: Current Audit Overview & Charts (2 cols wide) -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Selected Audit Header Card -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 relative overflow-hidden" id="selectedAuditCard">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div class="flex items-center space-x-3">
+                <h3 class="text-lg font-bold text-white font-mono" id="currentRepoTitle">Proje Seçiniz</h3>
+                <span id="currentMilestoneBadge" class="hidden text-xs bg-purple-950 text-purple-300 border border-purple-800 px-2 py-0.5 rounded font-semibold">
+                  ★ Baseline Milestone
+                </span>
+              </div>
+              <p class="text-xs text-gray-400 mt-1" id="currentAuditSubtitle">Detayları görüntülemek için sol menüden bir depo seçin.</p>
+            </div>
+            <!-- Big Score Badge -->
+            <div class="flex items-center space-x-4 bg-gray-950/60 border border-gray-800 px-5 py-3 rounded-xl">
+              <div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">Genel Puan</div>
+                <div class="text-3xl font-black" id="currentTotalScore">--</div>
+              </div>
+              <div class="text-4xl font-extrabold px-3 py-1 border rounded-lg" id="currentGradeBadge">--</div>
+            </div>
+          </div>
+
+          <!-- Layer 1 vs Layer 2 progress bars -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-800">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-400">Katman 1 (Mekanik Tarama - %60)</span>
+                <span class="font-bold text-gray-200" id="currentLayer1Val">--/100</span>
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div id="currentLayer1Bar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-400">Katman 2 (LLM Rubrik - %40)</span>
+                <span class="font-bold text-gray-200" id="currentLayer2Val">--/100</span>
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div id="currentLayer2Bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts: Trend line chart & Group Radar chart -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h4 class="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-4">Skor Zaman Serisi</h4>
+            <div class="h-60">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h4 class="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-4">5 Temel Grup Dengesi</h4>
+            <div class="h-60">
+              <canvas id="radarChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Granular Core Members Breakdown Table -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-semibold text-gray-300 uppercase tracking-wider">Ayrıntılı Analizör Puanları</h4>
+            <button id="markMilestoneBtn" onclick="markCurrentAsMilestone()" class="text-xs px-2.5 py-1 bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 rounded transition">
+              ★ Bu Denetimi Baseline Yap
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-300">
+              <thead class="bg-gray-950/60 uppercase text-gray-400 border-b border-gray-800">
+                <tr>
+                  <th class="py-2.5 px-3">Grup</th>
+                  <th class="py-2.5 px-3">Analizör / Üye</th>
+                  <th class="py-2.5 px-3 text-right">Puan</th>
+                  <th class="py-2.5 px-3 text-right">Ağırlık</th>
+                </tr>
+              </thead>
+              <tbody id="membersTableBody" class="divide-y divide-gray-800/60">
+                <tr><td colspan="4" class="py-4 text-center text-gray-500">Seçili denetim yok</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison (Diff) Section -->
+    <section class="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-800 pb-4">
+        <div>
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">İki Denetimi Karşılaştır (Delta & Regresyon Analizi)</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Önceki ve şimdiki denetim arasındaki puan değişimlerini karşılaştırın.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+          <input type="number" id="compareIdA" placeholder="Rapor A ID" class="w-28 bg-gray-950 border border-gray-700 rounded px-2.5 py-1 text-xs text-white">
+          <span class="text-gray-500">↔</span>
+          <input type="number" id="compareIdB" placeholder="Rapor B ID" class="w-28 bg-gray-950 border border-gray-700 rounded px-2.5 py-1 text-xs text-white">
+          <button onclick="runComparison()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded transition">
+            Karşılaştır
+          </button>
+        </div>
+      </div>
+      <div id="compareResult" class="hidden text-xs space-y-3 pt-2">
+        <!-- Dynamically injected delta summary -->
+      </div>
+  </main>
+
+  <!-- Scan Modal -->
+  <div id="scanModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-xl">🔍</span>
+          <h3 class="text-base font-bold text-white">Yeni Proje Denetimi Başlat</h3>
+        </div>
+        <button onclick="closeScanModal()" class="text-gray-400 hover:text-gray-200 text-lg font-mono leading-none">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+            Hedef Proje Dizin Yolu:
+          </label>
+          <input id="modalRepoPath" type="text" placeholder="/home/tuncay/PycharmProjects/diger-proje veya ." 
+            class="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-mono">
+          <p class="text-[11px] text-gray-500 mt-1">Sisteminizdeki projenin mutlak (absolute) veya göreli dizin yolunu girin.</p>
+        </div>
+
+        <div id="scanProgressBox" class="hidden p-4 rounded-xl bg-gray-950/80 border border-emerald-900/60 space-y-2">
+          <div class="flex items-center space-x-3 text-emerald-400 text-xs font-semibold">
+            <svg class="animate-spin h-4 w-4 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span id="scanProgressText">Denetim yapılıyor... Lütfen bekleyin.</span>
+          </div>
+          <p class="text-[11px] text-gray-400">Katman 1 (Semgrep SAST, Gitleaks, AST) ve Katman 2 (LLM Rubriği) koşturuluyor...</p>
+        </div>
+
+        <div id="scanErrorBox" class="hidden p-3 rounded-lg bg-red-950/60 border border-red-800 text-red-300 text-xs"></div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button id="btnCancelScan" onclick="closeScanModal()" class="px-4 py-2 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition">
+          Vazgeç
+        </button>
+        <button id="btnStartScan" onclick="triggerAuditFromModal()" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition flex items-center space-x-1.5">
+          <span>🚀 Denetimi Başlat</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    let currentSelectedReportId = null;
+    let trendChartInstance = null;
+    let radarChartInstance = null;
+
+    async function fetchSummary() {
+      try {
+        const res = await fetch('/api/v1/dashboard/summary');
+        if (!res.ok) throw new Error('Summary fetch failed');
+        const data = await res.json();
+
+        document.getElementById('statTotalRepos').textContent = data.total_repos || 0;
+        document.getElementById('statTotalAudits').textContent = data.total_audits || 0;
+        document.getElementById('statAvgScore').textContent = data.average_score + '/100';
+
+        const grades = data.grade_distribution || {};
+        const gradeHtml = Object.entries(grades).map(([g, c]) => `
+          <span class="text-xs px-2 py-0.5 rounded bg-gray-800 border border-gray-700 font-mono font-bold">${g}: ${c}</span>
+        `).join('') || '<span class="text-xs text-gray-500">Yok</span>';
+        document.getElementById('statGradeDistribution').innerHTML = gradeHtml;
+
+        await fetchRepos();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function fetchRepos() {
+      try {
+        const res = await fetch('/api/v1/dashboard/repos');
+        const data = await res.json();
+        const list = document.getElementById('repoList');
+        document.getElementById('repoCountLabel').textContent = `${data.total || 0} depo`;
+
+        if (!data.repos || data.repos.length === 0) {
+          list.innerHTML = '<div class="text-xs text-gray-500 py-4 text-center">Kayıtlı denetim bulunamadı.</div>';
+          return;
+        }
+
+        list.innerHTML = data.repos.map(r => `
+          <div onclick="selectReport(${r.id})" class="p-3 bg-gray-950/60 hover:bg-gray-800/80 border border-gray-800 rounded-lg cursor-pointer transition flex items-center justify-between">
+            <div class="truncate mr-2">
+              <div class="text-xs font-bold text-white truncate">${r.repo_path}</div>
+              <div class="text-[10px] text-gray-500 mt-0.5">Audit #${r.id} · ${new Date(r.created_at).toLocaleDateString('tr-TR')}</div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              <span class="text-xs font-bold font-mono text-emerald-400">${r.total_score}</span>
+              <span class="text-[11px] font-extrabold px-1.5 py-0.5 border rounded grade-${r.grade.replace('+', '-plus')}">${r.grade}</span>
+            </div>
+          </div>
+        `).join('');
+
+        if (data.repos.length > 0 && !currentSelectedReportId) {
+          selectReport(data.repos[0].id);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function selectReport(reportId) {
+      currentSelectedReportId = reportId;
+      try {
+        const res = await fetch(`/api/v1/dashboard/report/${reportId}`);
+        const report = await res.json();
+
+        document.getElementById('currentRepoTitle').textContent = report.repo_path;
+        document.getElementById('currentAuditSubtitle').textContent = `Audit ID: #${report.id} · İmza: ${report.profile_signature} · Tarih: ${new Date(report.created_at).toLocaleString('tr-TR')}`;
+        document.getElementById('currentTotalScore').textContent = report.total_score;
+
+        const gradeEl = document.getElementById('currentGradeBadge');
+        gradeEl.textContent = report.grade;
+        gradeEl.className = `text-4xl font-extrabold px-3 py-1 border rounded-lg grade-${report.grade.replace('+', '-plus')}`;
+
+        document.getElementById('currentLayer1Val').textContent = `${report.layer1_score}/100`;
+        document.getElementById('currentLayer1Bar').style.width = `${report.layer1_score}%`;
+
+        const l2 = report.layer2_score !== null ? report.layer2_score : 0;
+        document.getElementById('currentLayer2Val').textContent = report.layer2_score !== null ? `${report.layer2_score}/100` : 'Ölçülmedi';
+        document.getElementById('currentLayer2Bar').style.width = `${l2}%`;
+
+        const msBadge = document.getElementById('currentMilestoneBadge');
+        if (report.is_milestone) {
+          msBadge.classList.remove('hidden');
+          msBadge.textContent = `★ Baseline: ${report.milestone_label || 'milestone'}`;
+        } else {
+          msBadge.classList.add('hidden');
+        }
+
+        // Render Members Table
+        const tbody = document.getElementById('membersTableBody');
+        if (report.members && report.members.length > 0) {
+          tbody.innerHTML = report.members.map(m => `
+            <tr class="hover:bg-gray-800/40 transition">
+              <td class="py-2 px-3 font-mono text-gray-400">${m.group_key}</td>
+              <td class="py-2 px-3 font-medium text-white">${m.member_label}</td>
+              <td class="py-2 px-3 text-right font-bold font-mono ${m.score >= 80 ? 'text-emerald-400' : m.score >= 60 ? 'text-yellow-400' : 'text-red-400'}">${Math.round(m.score)}</td>
+              <td class="py-2 px-3 text-right text-gray-500 font-mono">${m.weight ? m.weight.toFixed(2) : '—'}</td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">Detaylı üye kaydı bulunamadı</td></tr>';
+        }
+
+        // Render Radar Chart
+        renderRadarChart(report.groups);
+
+        // Fetch Trend for this repo
+        await fetchTrend(report.repo_path);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function fetchTrend(repoPath) {
+      try {
+        const res = await fetch(`/api/v1/dashboard/trend?repo_path=${encodeURIComponent(repoPath)}&limit=20`);
+        const data = await res.json();
+        renderTrendChart(data.reports || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderTrendChart(reports) {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      if (trendChartInstance) trendChartInstance.destroy();
+
+      const labels = reports.map(r => `#${r.id}`);
+      const scores = reports.map(r => r.total_score);
+      const l1Scores = reports.map(r => r.layer1_score);
+      const l2Scores = reports.map(r => r.layer2_score || null);
+
+      trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Genel Skor',
+              data: scores,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              tension: 0.3,
+              fill: true,
+            },
+            {
+              label: 'Katman 1 (Mekanik)',
+              data: l1Scores,
+              borderColor: '#3b82f6',
+              borderDash: [5, 5],
+              tension: 0.3,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 100, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+            x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+          },
+          plugins: { legend: { labels: { color: '#d1d5db', boxWidth: 12 } } }
+        }
+      });
+    }
+
+    function renderRadarChart(groups) {
+      const ctx = document.getElementById('radarChart').getContext('2d');
+      if (radarChartInstance) radarChartInstance.destroy();
+
+      groups = groups || {};
+      const labels = ['Güvenlik', 'Kod Sağlığı', 'Yapısal', 'Dayanıklılık', 'DevOps'];
+      const values = [
+        groups.security || 0,
+        groups.code_health || 0,
+        groups.structural || 0,
+        groups.resilience || 0,
+        groups.dev_hygiene || 0,
+      ];
+
+      radarChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Grup Skoru',
+            data: values,
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+            pointBackgroundColor: '#8b5cf6',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              grid: { color: '#1f2937' },
+              angleLines: { color: '#1f2937' },
+              pointLabels: { color: '#9ca3af', font: { size: 10 } },
+              ticks: { display: false }
+            }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    async function markCurrentAsMilestone() {
+      if (!currentSelectedReportId) return;
+      const label = prompt('Milestone etiketi giriniz:', 'baseline-v1.0');
+      if (!label) return;
+
+      try {
+        const res = await fetch(`/api/v1/dashboard/milestone/${currentSelectedReportId}?label=${encodeURIComponent(label)}`, {
+          method: 'POST'
+        });
+        if (res.ok) {
+          alert('✓ Bu denetim referans baseline olarak işaretlendi!');
+          selectReport(currentSelectedReportId);
+        }
+      } catch (err) {
+        alert('Hata: ' + err);
+      }
+    }
+
+    async function runComparison() {
+      const a = document.getElementById('compareIdA').value;
+      const b = document.getElementById('compareIdB').value;
+      if (!a || !b) {
+        alert('Lütfen iki rapor ID giriniz.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/v1/dashboard/compare/${a}/${b}`);
+        if (!res.ok) {
+          alert('Raporlar bulunamadı veya karşılaştırılamadı.');
+          return;
+        }
+        const data = await res.json();
+        const delta = data.delta || {};
+        const reg = delta.regression;
+        const totalDelta = delta.total_score || 0;
+
+        const box = document.getElementById('compareResult');
+        box.classList.remove('hidden');
+        box.innerHTML = `
+          <div class="p-4 rounded-lg border ${reg ? 'bg-red-950/40 border-red-800' : 'bg-gray-950/60 border-gray-800'}">
+            <div class="flex items-center justify-between font-bold">
+              <span class="${reg ? 'text-red-400' : 'text-emerald-400'}">
+                ${reg ? '🚨 REGRESYON UYARISI: Belirgin puan düşüşü var!' : '✅ Karşılaştırma Tamamlandı'}
+              </span>
+              <span class="text-sm font-mono ${totalDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+                Toplam Fark: ${totalDelta >= 0 ? '+' : ''}${totalDelta} Puan
+              </span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3 text-center">
+              <div class="bg-gray-900/60 p-2 rounded">
+                <div class="text-[10px] text-gray-500">Güvenlik</div>
+                <div class="font-bold">${delta.groups?.security ?? '—'}</div>
+              </div>
+              <div class="bg-gray-900/60 p-2 rounded">
+                <div class="text-[10px] text-gray-500">Kod Sağlığı</div>
+                <div class="font-bold">${delta.groups?.code_health ?? '—'}</div>
+              </div>
+              <div class="bg-gray-900/60 p-2 rounded">
+                <div class="text-[10px] text-gray-500">Yapısal</div>
+                <div class="font-bold">${delta.groups?.structural ?? '—'}</div>
+              </div>
+              <div class="bg-gray-900/60 p-2 rounded">
+                <div class="text-[10px] text-gray-500">Dayanıklılık</div>
+                <div class="font-bold">${delta.groups?.resilience ?? '—'}</div>
+              </div>
+              <div class="bg-gray-900/60 p-2 rounded">
+                <div class="text-[10px] text-gray-500">DevOps</div>
+                <div class="font-bold">${delta.groups?.dev_hygiene ?? '—'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function openScanModal() {
+      document.getElementById('scanModal').classList.remove('hidden');
+      document.getElementById('modalRepoPath').focus();
+      document.getElementById('scanProgressBox').classList.add('hidden');
+      document.getElementById('scanErrorBox').classList.add('hidden');
+      document.getElementById('btnStartScan').disabled = false;
+      document.getElementById('btnCancelScan').disabled = false;
+    }
+
+    function closeScanModal() {
+      document.getElementById('scanModal').classList.add('hidden');
+    }
+
+    async function triggerAuditFromModal() {
+      const path = document.getElementById('modalRepoPath').value.trim();
+      if (!path) {
+        alert('Lütfen denetlenecek projenin dizin yolunu giriniz.');
+        return;
+      }
+
+      const progressBox = document.getElementById('scanProgressBox');
+      const errorBox = document.getElementById('scanErrorBox');
+      const btnStart = document.getElementById('btnStartScan');
+      const btnCancel = document.getElementById('btnCancelScan');
+
+      progressBox.classList.remove('hidden');
+      errorBox.classList.add('hidden');
+      btnStart.disabled = true;
+      btnCancel.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/audit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_path: path })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Denetim yürütülemedi.');
+        }
+
+        // Başarılı tamamlanma
+        closeScanModal();
+        alert(`✓ Denetim başarıyla tamamlandı!\nProje: ${data.repo_path || path}\nSkor: ${data.scorecard.total_score}/100 (Harf Notu: ${data.scorecard.grade})`);
+
+        // Özet ve depo listesini yenile, yeni raporu otomatik seç
+        await fetchSummary();
+        if (data.db_id) {
+          selectReport(data.db_id);
+        }
+      } catch (err) {
+        errorBox.textContent = 'Hata: ' + err.message;
+        errorBox.classList.remove('hidden');
+        progressBox.classList.add('hidden');
+        btnStart.disabled = false;
+        btnCancel.disabled = false;
+      }
+    }
+
+    // Initial Load
+    fetchSummary();
+  </script>
+</body>
+</html>
+
