@@ -48,6 +48,7 @@ yarn-error.log*
 
 # pytest / coverage
 .coverage
+coverage.xml
 .tox/
 htmlcov/
 .pytest_cache/
@@ -59,3 +60,6 @@ htmlcov/
 # Generated Audit Reports
 warden_reports/
 WARDEN_EXECUTIVE_REPORT.md
+
+# Test fixture repos
+tests/fixtures/repo_*
