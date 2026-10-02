@@ -2,7 +2,10 @@
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+from core.services.anomaly_detector import AnomalyDetector, AnomalyReport
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,28 @@ class RegressionReport:
     improvements: list[dict[str, Any]] = field(default_factory=list)
     total_delta: float = 0.0
     summary: str = ""
+    anomaly_report: AnomalyReport | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "has_regression": self.has_regression,
+            "total_delta": self.total_delta,
+            "summary": self.summary,
+            "warnings_count": len(self.warnings),
+            "warnings": [
+                {
+                    "dimension": w.dimension,
+                    "previous_score": w.previous_score,
+                    "current_score": w.current_score,
+                    "delta": w.delta,
+                    "severity": w.severity,
+                    "message": w.message,
+                }
+                for w in self.warnings
+            ],
+            "improvements": self.improvements,
+            "anomaly": self.anomaly_report.to_dict() if self.anomaly_report else None,
+        }
 
 
 class RegressionDetector:
@@ -45,10 +70,19 @@ class RegressionDetector:
                 print(w.message)
     """
 
+    def __init__(self, anomaly_detector: AnomalyDetector | None = None) -> None:
+        self.anomaly_detector = anomaly_detector or AnomalyDetector()
+
+    def detect_anomalies(self, current: dict[str, Any]) -> AnomalyReport:
+        """Evaluates an individual scorecard for statistical/ML anomalies using Isolation Forest."""
+        sc_curr = current.get("scorecard", current)
+        return self.anomaly_detector.detect_anomalies(sc_curr)
+
     def detect(
         self,
         current: dict[str, Any],
         previous: dict[str, Any],
+        check_anomalies: bool = False,
     ) -> RegressionReport:
         """Compares two audit result dicts and returns a RegressionReport.
 
@@ -131,6 +165,23 @@ class RegressionDetector:
                         "message": f"{glabel} grubu {delta:.1f} puan arttı",
                     })
 
+        # ── Anomaly Check (C2: Isolation Forest) ──────────────────────────────
+        anomaly_report = None
+        if check_anomalies:
+            anomaly_report = self.anomaly_detector.detect_anomalies(sc_curr)
+            if anomaly_report.is_anomaly:
+                for ad in anomaly_report.anomalous_dimensions:
+                    warnings.append(
+                        RegressionWarning(
+                            dimension=f"anomaly_{ad.dimension}",
+                            previous_score=ad.expected_mean,
+                            current_score=ad.value,
+                            delta=round(ad.value - ad.expected_mean, 2),
+                            severity=ad.severity,
+                            message=f"[ANOMALİ] {ad.message}",
+                        )
+                    )
+
         has_regression = bool(warnings)
 
         # ── Summary ───────────────────────────────────────────────────────────
@@ -139,18 +190,18 @@ class RegressionDetector:
         elif has_regression:
             critical = [w for w in warnings if w.severity == "CRITICAL"]
             summary = (
-                f"⚠️ {len(warnings)} regresyon tespit edildi. "
-                f"{'🚨 KRİTİK düşüş var! ' if critical else ''}"
-                f"Toplam: {prev_total} → {curr_total} ({total_delta:+d})"
+                f"⚠️ {len(warnings)} regresyon/anomali tespit edildi. "
+                f"{'🚨 KRİTİK düşüş/anomali var! ' if critical else ''}"
+                f"Toplam: {prev_total} → {curr_total} ({int(total_delta):+d})"
             )
         else:
             summary = (
                 f"✅ {len(improvements)} iyileştirme. "
-                f"Toplam: {prev_total} → {curr_total} ({total_delta:+d})"
+                f"Toplam: {prev_total} → {curr_total} ({int(total_delta):+d})"
             )
 
         if has_regression:
-            logger.warning(f"Regresyon tespit edildi: {summary}")
+            logger.warning(f"Regresyon/anomali tespit edildi: {summary}")
 
         return RegressionReport(
             has_regression=has_regression,
@@ -158,4 +209,5 @@ class RegressionDetector:
             improvements=improvements,
             total_delta=total_delta,
             summary=summary,
+            anomaly_report=anomaly_report,
         )

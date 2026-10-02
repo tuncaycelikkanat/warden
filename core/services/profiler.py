@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from core.services.project_classifier import ProjectTypeClassifier
 from core.services.shared.scan_exclusions import get_scan_exclusions
 from core.utils.file_discovery import discover_source_files
 
@@ -277,6 +278,8 @@ class ProjectProfile:
     catalog_version: str
     manifests_found: list[str] = field(default_factory=list)
     profiling_confidence: str = "normal"
+    project_type: str = "GENERIC_BACKEND"
+    archetype_details: dict[str, Any] = field(default_factory=dict)
 
     @property
     def matched_categories(self) -> list[MatchedCategory]:
@@ -297,6 +300,9 @@ class ProjectProfilerService:
     """Profiles repositories and selects relevant dynamic Layer 2 categories."""
 
     MAX_DYNAMIC_CATEGORIES = 5
+
+    def __init__(self, classifier: ProjectTypeClassifier | None = None) -> None:
+        self.classifier = classifier or ProjectTypeClassifier()
 
     def _read_all_manifests(self, repo_path: Path) -> dict[str, str]:
         """Reads content of all existing manifests in repo_path."""
@@ -362,11 +368,15 @@ class ProjectProfilerService:
         if not selected and not manifests:
             profiling_confidence = "low_signal_no_manifest"
 
+        archetype_res = self.classifier.classify(repo_path)
+
         return ProjectProfile(
             dynamic_categories=selected,
             signature=self._compute_signature(selected),
             catalog_version=CATALOG_VERSION,
             manifests_found=list(manifests.keys()),
             profiling_confidence=profiling_confidence,
+            project_type=archetype_res.archetype,
+            archetype_details=archetype_res.to_dict(),
         )
 

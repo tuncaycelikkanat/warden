@@ -165,6 +165,24 @@ def _run_audit_command(
         v_count = vibe.get("findings_count", 0)
         print(f"[🤖] Vibe-Coding Oranı: %{v_score} AI İzi ({v_level} risk · {v_count} gösterge)")
 
+    # Project Archetype (C5)
+    try:
+        from core.services.project_classifier import ProjectTypeClassifier
+        archetype = ProjectTypeClassifier().classify(validated_path)
+        print(f"[📁] Proje Tipi: {archetype.label} (%{int(archetype.confidence * 100)} güven)")
+    except Exception as err:
+        logger.debug(f"Could not classify project archetype: {err}")
+
+    # Anomaly Detection (C2)
+    try:
+        from core.services.anomaly_detector import AnomalyDetector
+        anomaly_rep = AnomalyDetector().detect_anomalies(res.get("scorecard", {}))
+        if anomaly_rep.is_anomaly:
+            dims_str = ", ".join(d.dimension for d in anomaly_rep.anomalous_dimensions) if anomaly_rep.anomalous_dimensions else "Genel skor"
+            print(f"[🚨] ANOMALİ UYARISI: Tarihsel normal dağılımın dışına çıkıldı ({dims_str} · Risk Skoru: %{round(anomaly_rep.anomaly_score, 1)})")
+    except Exception as err:
+        logger.debug(f"Could not run anomaly detection: {err}")
+
     print(f"[+] Saved to DB (ID: {db_id}) and {md_path}")
 
     if min_score is not None and total_score < min_score:
