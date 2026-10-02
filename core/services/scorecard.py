@@ -20,6 +20,8 @@ class ScorecardResult:
     breakdown: dict[str, Any]
     group_scores: dict[str, float] | None = None
     weight_redistributed_to_layer1: bool = False
+    archetype: str | None = None
+    dynamic_weights: dict[str, Any] | None = None
 
 
 class ScorecardAggregatorService:
@@ -35,11 +37,38 @@ class ScorecardAggregatorService:
         layer1_data: dict[str, Any],
         layer2_data: list[dict[str, Any]],
         category_weights: dict[str, float] | None = None,
+        group_weights: dict[str, float] | None = None,
+        archetype: str | None = None,
+        custom_overrides: dict[str, float] | None = None,
     ) -> ScorecardResult:
         """Calculates final hierarchical scorecard and assigns grade."""
+        effective_group_weights = group_weights
+        effective_category_weights = category_weights
+        applied_dynamic_weights = None
+
+        if archetype:
+            from core.services.dynamic_weight_service import DynamicWeightService
+
+            dws = DynamicWeightService()
+            if effective_group_weights is None:
+                effective_group_weights = dws.get_adjusted_layer1_weights(archetype, custom_overrides=custom_overrides)
+            if effective_category_weights is None:
+                effective_category_weights = dws.get_adjusted_layer2_weights(archetype, custom_overrides=custom_overrides)
+            applied_dynamic_weights = {
+                "layer1": effective_group_weights,
+                "layer2": effective_category_weights,
+                "overrides": custom_overrides or {},
+            }
+        elif effective_group_weights or effective_category_weights:
+            applied_dynamic_weights = {
+                "layer1": effective_group_weights,
+                "layer2": effective_category_weights,
+                "overrides": custom_overrides or {},
+            }
+
         member_scores = self._extract_member_scores(layer1_data)
         group_scores = self._calc_group_scores(member_scores)
-        layer1_score = self._calc_layer1(group_scores)
+        layer1_score = self._calc_layer1(group_scores, group_weights=effective_group_weights)
 
         redistributed = False
         if not layer2_data:
@@ -47,7 +76,7 @@ class ScorecardAggregatorService:
             total = layer1_score
             redistributed = True
         else:
-            calc_l2, unmeasured = self._calc_layer2(layer2_data, category_weights=category_weights)
+            calc_l2, unmeasured = self._calc_layer2(layer2_data, category_weights=effective_category_weights)
             if unmeasured or calc_l2 is None:
                 layer2_score = None
                 total = layer1_score
@@ -70,6 +99,8 @@ class ScorecardAggregatorService:
             },
             group_scores=group_scores,
             weight_redistributed_to_layer1=redistributed,
+            archetype=archetype,
+            dynamic_weights=applied_dynamic_weights,
         )
 
     def _score_security(self, findings: list[dict[str, Any]]) -> float:
@@ -337,13 +368,26 @@ class ScorecardAggregatorService:
                 group_scores[group.key] = 0.0
         return group_scores
 
-    def _calc_layer1(self, group_scores: dict[str, float]) -> int:
+    def _calc_layer1(
+        self,
+        group_scores: dict[str, float],
+        group_weights: dict[str, float] | None = None,
+    ) -> int:
         """Calculates Layer 1 total score normalized across active groups."""
         valid_groups = [g for g in CORE_GROUPS if g.key in group_scores]
-        total_group_weight = sum(g.weight for g in valid_groups)
+        if group_weights:
+            total_group_weight = sum(group_weights.get(g.key, g.weight) for g in valid_groups)
+        else:
+            total_group_weight = sum(g.weight for g in valid_groups)
+
         if total_group_weight == 0:
             return 0
-        l1_total = sum(group_scores[g.key] * (g.weight / total_group_weight) for g in valid_groups)
+
+        if group_weights:
+            l1_total = sum(group_scores[g.key] * (group_weights.get(g.key, g.weight) / total_group_weight) for g in valid_groups)
+        else:
+            l1_total = sum(group_scores[g.key] * (g.weight / total_group_weight) for g in valid_groups)
+
         return max(0, min(100, round(l1_total)))
 
     def _calc_layer2(

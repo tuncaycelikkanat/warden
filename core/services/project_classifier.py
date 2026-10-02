@@ -45,14 +45,55 @@ ARCHETYPE_RECOMMENDATIONS = {
     "GENERIC_BACKEND": "Katmanlı mimari disiplini, hata yönetimi ve kod sağlığı standartları dengeli şekilde uygulanmalıdır.",
 }
 
-# Category weight multipliers by archetype
+# Category weight multipliers by archetype for Layer 1 core groups (includes legacy alias keys for backwards compatibility)
 ARCHETYPE_WEIGHT_MODIFIERS: dict[str, dict[str, float]] = {
-    "FASTAPI_API": {"group_security": 1.25, "group_resilience": 1.15, "group_dev_hygiene": 0.9},
-    "DJANGO_WEB": {"group_security": 1.30, "group_structural": 1.15, "group_resilience": 1.0},
-    "FLASK_APP": {"group_security": 1.20, "group_code_health": 1.10},
-    "CLI_TOOL": {"group_dev_hygiene": 1.30, "group_code_health": 1.20, "group_security": 0.8},
-    "DATA_SCIENCE_ML": {"group_code_health": 1.25, "group_resilience": 1.20, "group_structural": 0.9},
-    "LIBRARY_PACKAGE": {"group_code_health": 1.30, "group_structural": 1.25, "group_dev_hygiene": 1.1},
+    "FASTAPI_API": {
+        "security_supply_chain": 1.35,
+        "resilience_performance": 1.30,
+        "dev_hygiene_devops": 0.85,
+        "group_security": 1.25,
+        "group_resilience": 1.15,
+        "group_dev_hygiene": 0.9,
+    },
+    "DJANGO_WEB": {
+        "security_supply_chain": 1.35,
+        "structural_health": 1.20,
+        "dev_hygiene_devops": 0.95,
+        "group_security": 1.30,
+        "group_structural": 1.15,
+        "group_resilience": 1.0,
+    },
+    "FLASK_APP": {
+        "security_supply_chain": 1.25,
+        "code_health_test": 1.15,
+        "dev_hygiene_devops": 0.90,
+        "group_security": 1.20,
+        "group_code_health": 1.10,
+    },
+    "CLI_TOOL": {
+        "dev_hygiene_devops": 1.45,
+        "code_health_test": 1.25,
+        "security_supply_chain": 0.75,
+        "group_dev_hygiene": 1.30,
+        "group_code_health": 1.20,
+        "group_security": 0.8,
+    },
+    "DATA_SCIENCE_ML": {
+        "resilience_performance": 1.40,
+        "code_health_test": 1.25,
+        "security_supply_chain": 0.90,
+        "group_code_health": 1.25,
+        "group_resilience": 1.20,
+        "group_structural": 0.9,
+    },
+    "LIBRARY_PACKAGE": {
+        "code_health_test": 1.35,
+        "structural_health": 1.30,
+        "dev_hygiene_devops": 1.15,
+        "group_code_health": 1.30,
+        "group_structural": 1.25,
+        "group_dev_hygiene": 1.1,
+    },
     "GENERIC_BACKEND": {},
 }
 

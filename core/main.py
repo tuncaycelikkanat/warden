@@ -508,6 +508,17 @@ def cli() -> None:
     mutate_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
     mutate_parser.add_argument("--output", "-o", default=None, help="Sonuç raporunu JSON dosyasına kaydet")
 
+    # Subcommand: classify (C1)
+    classify_parser = subparsers.add_parser(
+        "classify",
+        help="Proje arketipini (FastAPI, Django, CLI, ML, Library) ve dinamik kalite ağırlıklarını analiz eder (C1)",
+        description="Deponun mimari özelliklerini analiz ederek proje arketipini ve özelleştirilmiş kalite ağırlıklarını gösterir.",
+    )
+    classify_parser.add_argument("target", nargs="?", default=".", help="Hedef proje dizini (Varsayılan: '.')")
+    classify_parser.add_argument("--weights", action="store_true", default=False, help="Dinamik ağırlıklandırma tablosunu detaylı göster")
+    classify_parser.add_argument("--override", action="append", default=None, help="Ağırlık ezme (Örn: --override security_supply_chain=0.40)")
+    classify_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -574,6 +585,82 @@ def cli() -> None:
             as_json=args.json,
             output_file=args.output,
         )
+
+    elif args.command == "classify":
+        _run_classify_command(
+            args.target,
+            show_weights=args.weights,
+            overrides=args.override,
+            as_json=args.json,
+        )
+
+
+def _run_classify_command(
+    target: str,
+    show_weights: bool = False,
+    overrides: list[str] | None = None,
+    as_json: bool = False,
+) -> None:
+    """Executes archetype classification and dynamic weighting analysis."""
+    import json
+    from pathlib import Path
+    from core.services.dynamic_weight_service import DynamicWeightService
+
+    target_path = Path(target)
+    custom_overrides: dict[str, float] = {}
+    if overrides:
+        for o in overrides:
+            if "=" in o:
+                k, v = o.split("=", 1)
+                try:
+                    custom_overrides[k.strip()] = float(v.strip())
+                except ValueError:
+                    pass
+
+    service = DynamicWeightService()
+    report = service.analyze_project_weights(target_path, custom_overrides=custom_overrides)
+    data = report.to_dict()
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    print("\n" + "=" * 65)
+    print("🏛️  WARDEN PROJE ARKETİPİ VE DİNAMİK AĞIRLIKLANDIRMA")
+    print("=" * 65)
+    print(f"📁 Hedef Dizin      : {target_path.resolve()}")
+    print(f"🏷️  Arketip          : {report.label} ({report.archetype})")
+    print(f"🎯 Güven Skoru      : %{report.confidence * 100:.1f}")
+    print(f"💡 Mimari Öncelik   : {report.description}")
+    if report.matched_traits:
+        print(f"🔍 Tespit İpuçları  : {', '.join(report.matched_traits)}")
+
+    if show_weights or custom_overrides:
+        print("\n" + "-" * 65)
+        print("⚖️  LAYER 1 (STATİK GRUPLAR) DİNAMİK AĞIRLIK DAĞILIMI:")
+        print(f"  {'Grup':<28} | {'Varsayılan':<12} | {'Arketip Uyarlanmış':<18}")
+        print("  " + "-" * 62)
+        for grp, adj_w in report.layer1_adjusted.items():
+            base_w = report.layer1_baseline.get(grp, 0.0)
+            diff = adj_w - base_w
+            diff_str = f"({diff:+.1%})" if abs(diff) > 0.001 else "(=)"
+            print(f"  {grp:<28} | {base_w:>10.1%} | {adj_w:>10.1%} {diff_str}")
+
+        print("\n" + "-" * 65)
+        print("🧠 LAYER 2 (LLM RUBRIC) DİNAMİK KATEGORİ ÇARPANLARI:")
+        print(f"  {'Rubric Kategorisi':<28} | {'Varsayılan':<12} | {'Arketip Çarpanı':<18}")
+        print("  " + "-" * 62)
+        for cat, adj_w in report.layer2_adjusted.items():
+            base_w = report.layer2_baseline.get(cat, 1.0)
+            diff = adj_w - base_w
+            diff_str = f"({diff:+.2f})" if abs(diff) > 0.01 else "(=)"
+            print(f"  {cat:<28} | {base_w:>10.2f}x | {adj_w:>10.2f}x {diff_str}")
+
+    if custom_overrides:
+        print("\n" + "-" * 65)
+        print(f"⚡ Uygulanan Kullanıcı Override'ları: {custom_overrides}")
+
+    print("=" * 65 + "\n")
 
 
 def _run_mutate_command(
