@@ -543,6 +543,19 @@ def cli() -> None:
     anomaly_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
     anomaly_parser.add_argument("--output", "-o", default=None, help="Anomali raporunu JSON dosyasına kaydet")
 
+    # Subcommand: bdd (D4)
+    bdd_parser = subparsers.add_parser(
+        "bdd",
+        help="Python testlerinden Given-When-Then BDD/Gherkin senaryoları ve dokümantasyon üretir (D4)",
+        description="Python AST ile testleri analiz ederek standart .feature ve Markdown senaryo kataloğu üretir.",
+    )
+    bdd_parser.add_argument("target", nargs="?", default="tests", help="Taranacak test dizini veya test dosyası (Varsayılan: 'tests')")
+    bdd_parser.add_argument("--feature-dir", "-f", default=None, help="Cucumber/Behave uyumlu .feature dosyalarının kaydedileceği dizin")
+    bdd_parser.add_argument("--output", "-o", default=None, help="Markdown senaryo kataloğunun kaydedileceği dosya (örn: TEST_SCENARIOS.md)")
+    bdd_parser.add_argument("--enrich-llm", action="store_true", default=False, help="LLM ile senaryo başlıklarını ve kullanıcı hikayelerini zenginleştir")
+    bdd_parser.add_argument("--provider", default=None, help="LLM zenginleştirme sağlayıcısı (örn: gemini, openai, ollama)")
+    bdd_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -635,6 +648,17 @@ def cli() -> None:
             as_json=args.json,
             output_file=args.output,
         )
+
+    elif args.command == "bdd":
+        _run_bdd_command(
+            args.target,
+            feature_dir=args.feature_dir,
+            output_file=args.output,
+            enrich_llm=args.enrich_llm,
+            provider=args.provider,
+            as_json=args.json,
+        )
+
 
 
 
@@ -786,6 +810,74 @@ def _run_anomaly_command(
         print("💡 ÖNERİLEN İYİLEŞTİRME AKSİYONLARI:")
         for i, act in enumerate(report.remediation_actions, start=1):
             print(f"  {i}. {act}")
+
+    print("\n" + "=" * 68 + "\n")
+
+
+def _run_bdd_command(
+    target: str,
+    feature_dir: str | None = None,
+    output_file: str | None = None,
+    enrich_llm: bool = False,
+    provider: str | None = None,
+    as_json: bool = False,
+) -> None:
+    """Executes AST-based BDD scenario extraction and exports Gherkin/Markdown catalogs."""
+    import json
+    from pathlib import Path
+    from core.services.bdd_scenario_generator import BDDScenarioGeneratorService
+
+    p = Path(target)
+    if not p.exists():
+        print(f"[!] Hata: Belirtilen test yolu bulunamadı: {p}")
+        return
+
+    if not as_json:
+        print(f"[*] Analyzing tests in '{p}' using AST BDD scenario extractor...")
+    service = BDDScenarioGeneratorService()
+    report = service.generate_from_path(
+        target_path=p,
+        enrich_with_llm=enrich_llm,
+        provider_name=provider,
+    )
+
+    if as_json:
+        print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print("\n" + "=" * 68)
+    print("🥒 WARDEN BDD & GHERKIN SENARYO DOKÜMANTASYON MOTORU (D4)")
+    print("=" * 68)
+    print(f"📁 Hedef Test Yolu     : {p.resolve()}")
+    print(f"📦 Çıkarılan Özellikler: {report.total_features} Features")
+    print(f"🎯 Davranış Senaryoları: {report.total_scenarios} Scenarios")
+    print(f"⚡ Toplam Adım (Steps) : {report.total_steps} Given-When-Then steps")
+    print("-" * 68)
+
+    # Preview first 3 features
+    print("🔍 BDD SENARYO ÖNİZLEMESİ:")
+    for feat in report.features[:3]:
+        print(f"\n  📦 Feature: {feat.feature_name} ({len(feat.scenarios)} senaryo)")
+        for sc in feat.scenarios[:2]:
+            tag_str = " ".join(f"@{t}" for t in sc.tags)
+            print(f"    🎯 Scenario: {sc.name} [{tag_str}]")
+            for step in sc.steps[:4]:
+                print(f"       {step.step_type} {step.text}")
+            if len(sc.steps) > 4:
+                print(f"       ... (+{len(sc.steps) - 4} adım)")
+        if len(feat.scenarios) > 2:
+            print(f"    ... (+{len(feat.scenarios) - 2} diğer senaryo)")
+
+    if len(report.features) > 3:
+        print(f"\n  ... ve {len(report.features) - 3} diğer test özelliği")
+
+    if feature_dir:
+        exported = service.export_feature_files(report, feature_dir)
+        print(f"\n[✓] {len(exported)} adet Behave/Cucumber '.feature' dosyası kaydedildi: {Path(feature_dir).resolve()}")
+
+    if output_file:
+        md_path = service.export_markdown_report(report, output_file)
+        print(f"[✓] Markdown BDD senaryo kataloğu kaydedildi: {md_path.resolve()}")
 
     print("\n" + "=" * 68 + "\n")
 

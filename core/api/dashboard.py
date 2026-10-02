@@ -385,4 +385,68 @@ async def evaluate_scorecard_anomaly(body: ScoreAnomalyEvaluateRequest) -> dict[
     }
 
 
+class BDDGenerateRequest(BaseModel):
+    target_path: str = Field(default="tests", description="Taranacak test dizini veya dosyası")
+    feature_dir: str | None = Field(default=None, description="Opsiyonel .feature dosyalarının yazılacağı dizin")
+    markdown_output: str | None = Field(default=None, description="Opsiyonel Markdown dokümantasyon dosya yolu")
+    enrich_llm: bool = Field(default=False, description="LLM ile senaryo başlıklarını zenginleştir")
+    provider: str | None = Field(default=None, description="Opsiyonel LLM sağlayıcı adı")
+
+
+@router.get("/bdd/summary")
+async def get_bdd_summary(
+    path: str = Query(default="tests", description="Taranacak test dizini veya dosyası"),
+    limit_features: int = Query(default=30, ge=1, le=100),
+) -> dict[str, Any]:
+    """Extracts and catalogs BDD features and Given-When-Then scenarios from Python tests."""
+    from core.services.bdd_scenario_generator import BDDScenarioGeneratorService
+
+    service = BDDScenarioGeneratorService()
+    try:
+        report = service.generate_from_path(path)
+        data = report.to_dict()
+        data["features"] = data["features"][:limit_features]
+        return data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"BDD senaryoları çıkarılırken hata: {exc}")
+
+
+@router.post("/bdd/generate")
+async def generate_bdd_scenarios(body: BDDGenerateRequest) -> dict[str, Any]:
+    """Generates BDD scenarios, exports .feature files, and builds Markdown catalog."""
+    from core.services.bdd_scenario_generator import BDDScenarioGeneratorService
+
+    service = BDDScenarioGeneratorService()
+    try:
+        report = service.generate_from_path(
+            body.target_path,
+            enrich_with_llm=body.enrich_llm,
+            provider_name=body.provider,
+        )
+
+        exported_features: list[str] = []
+        if body.feature_dir:
+            paths = service.export_feature_files(report, body.feature_dir)
+            exported_features = [str(p) for p in paths]
+
+        md_file_str: str | None = None
+        if body.markdown_output:
+            md_path = service.export_markdown_report(report, body.markdown_output)
+            md_file_str = str(md_path)
+
+        return {
+            "success": True,
+            "target_path": body.target_path,
+            "total_features": report.total_features,
+            "total_scenarios": report.total_scenarios,
+            "total_steps": report.total_steps,
+            "exported_feature_files": exported_features,
+            "markdown_file": md_file_str,
+            "summary": report.summary,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"BDD senaryoları oluşturulurken hata: {exc}")
+
+
+
 
