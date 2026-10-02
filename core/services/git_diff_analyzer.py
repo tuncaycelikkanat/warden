@@ -74,3 +74,33 @@ class GitDiffAnalyzer:
                 logger.warning(f"Failed to list untracked files: {e}")
 
         return sorted(changed)
+
+    def get_staged_files(self, repo_path: Path) -> list[Path]:
+        """Returns list of absolute Path objects for files currently staged for commit.
+
+        Uses `git diff --cached --name-only --diff-filter=d`.
+        """
+        repo_path = repo_path.resolve()
+        staged: set[Path] = set()
+
+        try:
+            res = subprocess.run(
+                ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
+                cwd=str(repo_path),
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    f = (repo_path / line.strip()).resolve()
+                    if f.is_file():
+                        staged.add(f)
+            else:
+                logger.warning(f"git diff --cached failed (code {res.returncode}): {res.stderr}")
+        except Exception as e:
+            logger.warning(f"Failed to execute git diff --cached: {e}")
+
+        return sorted(staged)
+

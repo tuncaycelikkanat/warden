@@ -400,6 +400,56 @@ def cli() -> None:
         help="Metrikleri Prometheus exposition yerine JSON formatında çıktılar",
     )
 
+    # Subcommand: hook (H3)
+    hook_parser = subparsers.add_parser(
+        "hook",
+        help="Git hook (pre-commit & pre-push) kalite kapısı yönetimi (H3)",
+        description="Akıllı git kancalarını kurar, kaldırır veya çalıştırır.",
+    )
+    hook_subparsers = hook_parser.add_subparsers(dest="hook_action", help="Hook eylemi")
+
+    # hook install
+    install_parser = hook_subparsers.add_parser("install", help="Git kancalarını .git/hooks dizinine kurar")
+    install_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    install_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push", "all"],
+        default="all",
+        help="Kurulacak hook türü (Varsayılan: all)",
+    )
+    install_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=80,
+        help="Pre-push için minimum kabul skoru (Varsayılan: 80)",
+    )
+
+    # hook uninstall
+    uninstall_parser = hook_subparsers.add_parser("uninstall", help="Kurulu WARDEN git kancalarını kaldırır")
+    uninstall_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    uninstall_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push", "all"],
+        default="all",
+        help="Kaldırılacak hook türü (Varsayılan: all)",
+    )
+
+    # hook run
+    run_parser = hook_subparsers.add_parser("run", help="Belirtilen git kancasını manuel çalıştırır")
+    run_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    run_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push"],
+        required=True,
+        help="Çalıştırılacak hook türü",
+    )
+    run_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=80,
+        help="Pre-push için minimum kalite skoru (Varsayılan: 80)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -443,6 +493,53 @@ def cli() -> None:
 
     elif args.command == "metrics":
         _run_metrics_command(args.json)
+
+    elif args.command == "hook":
+        _run_hook_command(args)
+
+
+def _run_hook_command(args) -> None:
+    """Dispatches git hook management and execution commands."""
+    import sys
+    from pathlib import Path
+
+    from core.services.git_hook_service import GitHookService
+
+    service = GitHookService()
+    repo_path = Path(args.target).resolve()
+
+    if not getattr(args, "hook_action", None):
+        print("[!] Lütfen bir hook eylemi belirtin: install, uninstall, run")
+        sys.exit(1)
+
+    if args.hook_action == "install":
+        ok = service.install(repo_path, hook_type=args.hook_type, min_score=args.min_score)
+        if ok:
+            print(f"[✓] WARDEN Git Hook ({args.hook_type}) başarıyla kuruldu: {repo_path}/.git/hooks/")
+        else:
+            print(f"[!] Git Hook kurulumu başarısız: {repo_path} geçerli bir git deposu mu?")
+            sys.exit(1)
+
+    elif args.hook_action == "uninstall":
+        ok = service.uninstall(repo_path, hook_type=args.hook_type)
+        if ok:
+            print(f"[✓] WARDEN Git Hook ({args.hook_type}) kaldırıldı.")
+        else:
+            print("[!] Hook kaldırılamadı.")
+            sys.exit(1)
+
+    elif args.hook_action == "run":
+        if args.hook_type == "pre-commit":
+            passed, msg = service.run_pre_commit(repo_path)
+            print(msg)
+            if not passed:
+                sys.exit(1)
+        elif args.hook_type == "pre-push":
+            import asyncio
+            passed, msg = asyncio.run(service.run_pre_push(repo_path, min_score=args.min_score))
+            print(msg)
+            if not passed:
+                sys.exit(1)
 
 
 def _run_metrics_command(as_json: bool = False) -> None:
