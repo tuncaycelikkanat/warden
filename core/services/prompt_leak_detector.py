@@ -214,7 +214,7 @@ class PromptLeakDetector:
         """Scans specified files or all source files in repository for prompt leak vulnerabilities."""
         repo_path = repo_path.resolve()
         if files is None:
-            from core.services.orchestrator import discover_source_files
+            from core.utils.file_discovery import discover_source_files
             target_files = discover_source_files(repo_path)
         else:
             target_files = files

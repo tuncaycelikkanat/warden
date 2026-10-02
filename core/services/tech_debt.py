@@ -50,6 +50,7 @@ class TechDebtResult:
     total_commits_in_window: int = 0
     reason: str | None = None
     note: str | None = None
+    remediation_estimate: Any | None = None
 
 
 class TechDebtService:
@@ -264,10 +265,22 @@ class TechDebtService:
 
         note = "no_commits_in_window" if total_commits == 0 else None
 
+        # Estimate technical debt remediation effort (F3)
+        remediation_est = None
+        try:
+            from core.services.debt_estimator import TechDebtEstimator
+            remediation_est = TechDebtEstimator().estimate(
+                todo_markers=todo_markers,
+                churn_entries=churn_entries,
+            )
+        except Exception as err:
+            logger.debug(f"Failed to calculate remediation estimate: {err}")
+
         return TechDebtResult(
             measured=True,
             churn_entries=churn_entries,
             todo_markers=todo_markers,
             total_commits_in_window=total_commits,
             note=note,
+            remediation_estimate=remediation_est,
         )

@@ -17,8 +17,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.services.secret_leak import mask_secret
-
 logger = logging.getLogger(__name__)
 
 # Keywords indicating sensitive variable names / keys
@@ -78,6 +76,15 @@ class EntropyFinding:
             "confidence": self.confidence,
             "reason": self.reason,
         }
+
+
+def mask_secret(raw_value: str) -> str:
+    """Masks a secret string so raw credentials are never persisted or displayed."""
+    if not raw_value:
+        return ""
+    if len(raw_value) <= 8:
+        return "*" * len(raw_value)
+    return f"{raw_value[:4]}{'*' * (len(raw_value) - 8)}{raw_value[-4:]}"
 
 
 class EntropyAnalyzerService:

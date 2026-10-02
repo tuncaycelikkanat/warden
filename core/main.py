@@ -189,6 +189,22 @@ def _run_audit_command(
     if fake_count > 0:
         print(f"[⚠️] Sahte/Trivial Test Uyarısı: {fake_count} assertion'sız test tespit edildi!")
 
+    # Technical Debt Remediation Effort (F3)
+    try:
+        from core.services.debt_estimator import TechDebtEstimator
+        td_data = res.get("tech_debt", {})
+        comp_data = res.get("complexity", {})
+        outliers = comp_data.get("outlier_blocks", []) if isinstance(comp_data, dict) else getattr(comp_data, "outlier_blocks", [])
+        est = TechDebtEstimator().estimate(
+            todo_markers=td_data.get("todo_markers", []),
+            churn_entries=td_data.get("churn_entries", []),
+            outlier_blocks=outliers,
+        )
+        if est.total_hours > 0:
+            print(f"[⏱️] Tahmini Teknik Borç Eforu: {est.total_hours:.1f} saat ({est.total_days:.1f} adam/gün)")
+    except Exception as err:
+        logger.debug(f"Could not compute tech debt estimate in audit: {err}")
+
     print(f"[+] Saved to DB (ID: {db_id}) and {md_path}")
 
     if min_score is not None and total_score < min_score:
@@ -382,6 +398,19 @@ def cli() -> None:
         help="Denetlenecek şüpheli paket adı (örn: reqeusts, colorma)",
     )
 
+    # Subcommand: check-cycles (F4)
+    cycles_parser = subparsers.add_parser(
+        "check-cycles",
+        help="Proje modülleri arasındaki döngüsel bağımlılıkları (circular imports) tespit eder (F4)",
+        description="networkx ile import grafı kurarak dairesel bağımlılık döngülerini ve çözüm önerilerini raporlar.",
+    )
+    cycles_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Hedef projenin yolu (Varsayılan: '.')",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -419,6 +448,32 @@ def cli() -> None:
 
     elif args.command == "check-typosquatting":
         _run_check_typosquatting(args.package_name)
+
+    elif args.command == "check-cycles":
+        _run_check_cycles(args.target)
+
+
+def _run_check_cycles(target: str) -> None:
+    """Detects circular import cycles using networkx AST graph analysis."""
+    from pathlib import Path
+
+    from core.services.circular_dependency_detector import CircularDependencyDetector
+
+    p = Path(target).resolve()
+    print(f"[*] Analyzing Python import relationships and circular cycles for {p} using networkx...")
+    detector = CircularDependencyDetector()
+    report = detector.analyze(p)
+
+    print(f"[+] Toplam Modül: {report.total_modules_analyzed} · Import Kenarları: {report.total_import_edges}")
+
+    if not report.has_cycles:
+        print("[✓] Harika! Projede döngüsel bağımlılık (circular import) tespit edilmedi (Temiz Acyclic DAG).")
+    else:
+        print(f"[🚨] {report.cycles_count} DÖNGÜSEL BAĞIMLILIK TESPİT EDİLDİ!")
+        for i, cycle in enumerate(report.cycles, start=1):
+            path_str = " -> ".join(cycle.cycle_path)
+            print(f"\n  #{i} Döngü ({cycle.length} modül): {path_str}")
+            print(f"     💡 Çözüm Önerisi: {cycle.break_suggestion}")
 
 
 def _run_check_attack_surface(target: str, top: int) -> None:

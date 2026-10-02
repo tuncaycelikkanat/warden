@@ -203,7 +203,7 @@ class VibeCodingDetector:
         """Scans source files and Git history in the repository to compute an overall vibe-coding score."""
         repo_path = repo_path.resolve()
         if files is None:
-            from core.services.orchestrator import discover_source_files
+            from core.utils.file_discovery import discover_source_files
             target_files = discover_source_files(repo_path)
         else:
             target_files = files
