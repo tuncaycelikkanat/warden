@@ -450,6 +450,36 @@ def cli() -> None:
         help="Pre-push için minimum kalite skoru (Varsayılan: 80)",
     )
 
+    # Subcommand: export-sarif (I4)
+    sarif_parser = subparsers.add_parser(
+        "export-sarif",
+        help="Denetim bulgularını OASIS SARIF v2.1.0 formatında dışa aktarır (I4)",
+        description="GitHub Code Scanning ve CI/CD için SARIF formatında statik analiz raporu üretir.",
+    )
+    sarif_parser.add_argument("target", nargs="?", default=".", help="Hedef proje yolu (Varsayılan: '.')")
+    sarif_parser.add_argument(
+        "--output",
+        "-o",
+        default="warden-results.sarif",
+        help="Çıktı SARIF dosya yolu (Varsayılan: warden-results.sarif)",
+    )
+    sarif_parser.add_argument("--audit-id", type=int, default=None, help="Mevcut bir veritabanı audit ID'sinden üret")
+
+    # Subcommand: export-pdf (I1)
+    pdf_parser = subparsers.add_parser(
+        "export-pdf",
+        help="Denetim sonuçları için kurumsal PDF Executive Summary raporu üretir (I1)",
+        description="Yönetici düzeyinde renkli rozetler, metrik tabloları ve aksiyon önerileri içeren PDF raporu üretir.",
+    )
+    pdf_parser.add_argument("target", nargs="?", default=".", help="Hedef proje yolu (Varsayılan: '.')")
+    pdf_parser.add_argument(
+        "--output",
+        "-o",
+        default="warden-executive-report.pdf",
+        help="Çıktı PDF dosya yolu (Varsayılan: warden-executive-report.pdf)",
+    )
+    pdf_parser.add_argument("--audit-id", type=int, default=None, help="Mevcut bir veritabanı audit ID'sinden üret")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -496,6 +526,100 @@ def cli() -> None:
 
     elif args.command == "hook":
         _run_hook_command(args)
+
+    elif args.command == "export-sarif":
+        _run_export_sarif(args.target, args.output, args.audit_id)
+
+    elif args.command == "export-pdf":
+        _run_export_pdf(args.target, args.output, args.audit_id)
+
+
+def _run_export_sarif(target: str, output: str, audit_id: int | None = None) -> None:
+    """Runs audit or fetches from DB, then exports findings to OASIS SARIF v2.1.0 JSON."""
+    import asyncio
+    import sys
+    from pathlib import Path
+
+    from sqlmodel import Session, select
+
+    from core.infra.database import create_db_and_tables, engine
+    from core.models.audit import AuditReport
+    from core.services.sarif_service import SarifReportService
+
+    create_db_and_tables()
+    p = Path(target).resolve()
+    out = Path(output).resolve()
+
+    if audit_id is not None:
+        with Session(engine) as session:
+            rep = session.exec(select(AuditReport).where(AuditReport.id == audit_id)).first()
+            if not rep:
+                print(f"[!] Audit ID {audit_id} bulunamadı.")
+                sys.exit(1)
+            data = rep.raw_data or {}
+            target_path = rep.repo_path
+    else:
+        from core.services.orchestrator import AuditOrchestrator
+
+        print(f"[*] Auditing {p} to generate SARIF report...")
+        orch = AuditOrchestrator()
+        data = asyncio.run(orch.run_full_audit(str(p), incremental=True))
+        target_path = str(p)
+
+    service = SarifReportService()
+    saved = service.export_to_file(data, out, repo_path=target_path)
+    print(f"[✓] OASIS SARIF v2.1.0 raporu başarıyla kaydedildi: {saved}")
+
+
+def _run_export_pdf(target: str, output: str, audit_id: int | None = None) -> None:
+    """Runs audit or fetches from DB, then exports executive summary to PDF."""
+    import asyncio
+    import sys
+    from pathlib import Path
+
+    from sqlmodel import Session, select
+
+    from core.infra.database import create_db_and_tables, engine
+    from core.models.audit import AuditReport
+    from core.services.pdf_report_service import PdfReportService
+
+    create_db_and_tables()
+    p = Path(target).resolve()
+    out = Path(output).resolve()
+
+    if audit_id is not None:
+        with Session(engine) as session:
+            rep = session.exec(select(AuditReport).where(AuditReport.id == audit_id)).first()
+            if not rep:
+                print(f"[!] Audit ID {audit_id} bulunamadı.")
+                sys.exit(1)
+            data = rep.raw_data or {}
+            if not data.get("scorecard"):
+                data["scorecard"] = {
+                    "total_score": rep.total_score,
+                    "grade": rep.grade,
+                    "layer1_score": rep.layer1_score,
+                    "layer2_score": rep.layer2_score,
+                    "group_scores": {
+                        "security_supply_chain": rep.group_security or 0.0,
+                        "code_health_test": rep.group_code_health or 0.0,
+                        "structural_health": rep.group_structural or 0.0,
+                        "resilience_performance": rep.group_resilience or 0.0,
+                        "dev_hygiene_devops": rep.group_dev_hygiene or 0.0,
+                    },
+                }
+            target_path = rep.repo_path
+    else:
+        from core.services.orchestrator import AuditOrchestrator
+
+        print(f"[*] Auditing {p} to generate Executive PDF report...")
+        orch = AuditOrchestrator()
+        data = asyncio.run(orch.run_full_audit(str(p), incremental=True))
+        target_path = str(p)
+
+    service = PdfReportService()
+    saved = service.generate_pdf(data, out, repo_path=target_path)
+    print(f"[✓] Kurumsal Executive Summary PDF raporu kaydedildi: {saved}")
 
 
 def _run_hook_command(args) -> None:

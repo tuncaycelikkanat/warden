@@ -238,3 +238,71 @@ async def clear_milestone(report_id: int) -> dict[str, Any]:
         session.commit()
 
     return {"success": True, "report_id": report_id, "message": "Milestone cleared"}
+
+
+@router.get("/report/{report_id}/sarif")
+async def get_report_sarif(report_id: int):
+    """Exports audit findings in OASIS SARIF v2.1.0 standard JSON."""
+    from fastapi.responses import JSONResponse
+
+    from core.services.sarif_service import SarifReportService
+
+    with Session(engine) as session:
+        report = session.exec(select(AuditReport).where(AuditReport.id == report_id)).first()
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+
+    sarif_service = SarifReportService()
+    data = report.raw_data or {}
+    if not data.get("scorecard"):
+        data["scorecard"] = {
+            "total_score": report.total_score,
+            "grade": report.grade,
+            "layer1_score": report.layer1_score,
+            "layer2_score": report.layer2_score,
+        }
+
+    sarif_doc = sarif_service.generate_sarif(data, repo_path=report.repo_path)
+    return JSONResponse(
+        content=sarif_doc,
+        media_type="application/sarif+json",
+        headers={"Content-Disposition": f"inline; filename=warden-report-{report_id}.sarif"},
+    )
+
+
+@router.get("/report/{report_id}/pdf")
+async def get_report_pdf(report_id: int):
+    """Generates and downloads a corporate PDF Executive Summary report."""
+    from fastapi import Response
+
+    from core.services.pdf_report_service import PdfReportService
+
+    with Session(engine) as session:
+        report = session.exec(select(AuditReport).where(AuditReport.id == report_id)).first()
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+
+    pdf_service = PdfReportService()
+    data = report.raw_data or {}
+    if not data.get("scorecard"):
+        data["scorecard"] = {
+            "total_score": report.total_score,
+            "grade": report.grade,
+            "layer1_score": report.layer1_score,
+            "layer2_score": report.layer2_score,
+            "group_scores": {
+                "security_supply_chain": report.group_security or 0.0,
+                "code_health_test": report.group_code_health or 0.0,
+                "structural_health": report.group_structural or 0.0,
+                "resilience_performance": report.group_resilience or 0.0,
+                "dev_hygiene_devops": report.group_dev_hygiene or 0.0,
+            },
+        }
+
+    pdf_bytes = pdf_service.generate_pdf_bytes(data, repo_path=report.repo_path)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=warden-executive-report-{report_id}.pdf"},
+    )
+
