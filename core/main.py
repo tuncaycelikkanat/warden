@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 
 from core.api.dashboard import router as dashboard_router
@@ -58,46 +58,22 @@ async def health_check():
 
 @app.get("/api/v1/metrics")
 async def get_metrics():
-    """Observability endpoint providing operational metrics and health status."""
-    import shutil
+    """Observability endpoint providing operational metrics and health status (JSON)."""
+    from core.services.metrics_service import MetricsCollectorService
 
-    from sqlmodel import Session, select
+    collector = MetricsCollectorService(start_time=_APP_START_TIME)
+    return collector.collect_metrics_data()
 
-    from core.infra.cache import get_cache
-    from core.infra.database import engine
-    from core.models.audit import AuditReport
 
-    # DB Stats
-    total_audits = 0
-    try:
-        with Session(engine) as session:
-            reports = session.exec(select(AuditReport.total_score)).all()
-            total_audits = len(reports)
-            avg_score = round(sum(reports) / max(1, total_audits), 1) if reports else 0
-    except Exception:
-        avg_score = 0
+@app.get("/metrics", response_class=Response)
+@app.get("/api/v1/metrics/prometheus", response_class=Response)
+async def get_prometheus_metrics():
+    """Observability endpoint providing Prometheus / OpenMetrics plain-text metrics."""
+    from core.services.metrics_service import MetricsCollectorService
 
-    # Cache type
-    cache_backend = get_cache().__class__.__name__
-
-    return {
-        "status": "healthy",
-        "version": "0.1.0",
-        "uptime_seconds": round(time.time() - _APP_START_TIME, 1),
-        "database": {
-            "dialect": engine.dialect.name,
-            "total_audits": total_audits,
-            "average_score": avg_score,
-        },
-        "cache": {
-            "backend": cache_backend,
-        },
-        "tools": {
-            "gitleaks": shutil.which("gitleaks") is not None,
-            "semgrep": shutil.which("semgrep") is not None,
-            "jscpd": shutil.which("jscpd") is not None,
-        },
-    }
+    collector = MetricsCollectorService(start_time=_APP_START_TIME)
+    content = collector.generate_prometheus_exposition()
+    return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 # Dashboard frontend (React/Vite build output) — sadece build varsa serve et
@@ -411,6 +387,19 @@ def cli() -> None:
         help="Hedef projenin yolu (Varsayılan: '.')",
     )
 
+    # Subcommand: metrics (G6)
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="WARDEN operasyonel ve kalite metriklerini Prometheus / OpenMetrics formatında çıktılar (G6)",
+        description="Prometheus scraping ve izlenebilirlik için metrikleri plain-text veya JSON formatında sunar.",
+    )
+    metrics_parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Metrikleri Prometheus exposition yerine JSON formatında çıktılar",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -451,6 +440,23 @@ def cli() -> None:
 
     elif args.command == "check-cycles":
         _run_check_cycles(args.target)
+
+    elif args.command == "metrics":
+        _run_metrics_command(args.json)
+
+
+def _run_metrics_command(as_json: bool = False) -> None:
+    """Exports WARDEN operational and quality metrics to stdout."""
+    import json
+    from core.services.metrics_service import MetricsCollectorService
+
+    create_db_and_tables()
+    collector = MetricsCollectorService()
+    if as_json:
+        data = collector.collect_metrics_data()
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+    else:
+        print(collector.generate_prometheus_exposition())
 
 
 def _run_check_cycles(target: str) -> None:

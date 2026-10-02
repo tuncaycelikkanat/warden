@@ -45,6 +45,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     EXEMPT_PREFIXES = (
         "/api/v1/health",
+        "/api/v1/metrics",
+        "/metrics",
         "/dashboard",
         "/docs",
         "/openapi.json",
