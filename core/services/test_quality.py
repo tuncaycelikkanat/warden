@@ -36,6 +36,8 @@ class TestQualityResult:
     tautology_count: int = 0
     uninvoked_mock_count: int = 0
     measured: bool = True
+    mutation_score: float | None = None
+    mutation_report: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +58,8 @@ class TestQualityResult:
             ],
             "fake_test_details": [d.to_dict() for d in self.fake_test_details[:50]],
             "measured": self.measured,
+            "mutation_score": self.mutation_score,
+            "mutation_report": self.mutation_report,
         }
 
 

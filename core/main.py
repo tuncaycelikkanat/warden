@@ -494,6 +494,20 @@ def cli() -> None:
         help="Kullanılacak LLM sağlayıcısı (gemini, openai, ollama vb.)",
     )
 
+    # Subcommand: mutate (D1)
+    mutate_parser = subparsers.add_parser(
+        "mutate",
+        help="AST Mutasyon Testi ile test paketinin mutant öldürme skorunu ve kör noktalarını analiz eder (D1)",
+        description="Kaynak kodda yapay hatalar (mutantlar) türeterek testlerin bu hataları yakalayıp yakalamadığını ölçer.",
+    )
+    mutate_parser.add_argument("target", nargs="?", default=".", help="Hedef kaynak dosya veya dizin yolu (Varsayılan: '.')")
+    mutate_parser.add_argument("--test-path", default=None, help="Koşulacak spesifik test dosyası veya dizini")
+    mutate_parser.add_argument("--max-mutants", type=int, default=15, help="Test edilecek maksimum mutant sayısı (Varsayılan: 15)")
+    mutate_parser.add_argument("--timeout", type=float, default=8.0, help="Her bir mutant testi için zaman aşımı saniyesi (Varsayılan: 8.0)")
+    mutate_parser.add_argument("--dry-run", action="store_true", default=False, help="Testleri çalıştırmadan yalnızca potansiyel mutantları haritala")
+    mutate_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    mutate_parser.add_argument("--output", "-o", default=None, help="Sonuç raporunu JSON dosyasına kaydet")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -549,6 +563,81 @@ def cli() -> None:
 
     elif args.command == "query":
         _run_query_command(args.query, as_json=args.json, provider=args.provider)
+
+    elif args.command == "mutate":
+        _run_mutate_command(
+            args.target,
+            test_path=args.test_path,
+            max_mutants=args.max_mutants,
+            timeout=args.timeout,
+            dry_run=args.dry_run,
+            as_json=args.json,
+            output_file=args.output,
+        )
+
+
+def _run_mutate_command(
+    target: str,
+    test_path: str | None = None,
+    max_mutants: int = 15,
+    timeout: float = 8.0,
+    dry_run: bool = False,
+    as_json: bool = False,
+    output_file: str | None = None,
+) -> None:
+    """Executes mutation testing or dry-run discovery and displays findings."""
+    import json
+    from pathlib import Path
+    from core.services.mutation_tester import MutationTesterService
+
+    target_path = Path(target)
+    test_p = Path(test_path) if test_path else None
+    service = MutationTesterService(repo_path=Path("."))
+
+    report = service.run_mutation_testing(
+        target_path=target_path,
+        test_path=test_p,
+        max_mutants=max_mutants,
+        timeout=timeout,
+        dry_run=dry_run,
+    )
+
+    data = report.to_dict()
+
+    if output_file:
+        out_p = Path(output_file)
+        out_p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        if not as_json:
+            print(f"[✓] Mutasyon raporu kaydedildi: {output_file}")
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    mode_str = "DRY-RUN (Haritalama)" if dry_run else "CANLI İCRA (Öldürme Testi)"
+    print("\n" + "=" * 60)
+    print(f"🧬 WARDEN AST MUTASYON TESTİ — {mode_str}")
+    print("=" * 60)
+    print(f"📁 Hedef Yol         : {report.target_path}")
+    print(f"🔍 Keşfedilen Mutant : {report.total_mutants_discovered}")
+    print(f"🧪 Test Edilen Mutant: {report.mutants_tested}")
+    if not dry_run:
+        print(f"🎯 Öldürülen (Killed): {report.killed} ✅")
+        print(f"⚠️  Kurtulan (Survived): {report.survived} ❌")
+        print(f"⏱️  Zaman Aşımı (Timeout): {report.timed_out}")
+        print(f"💥 Hata (Errored)    : {report.errored}")
+        print(f"🏆 Mutasyon Skoru    : %{report.mutation_score:.1f}")
+    print(f"⏱️  Toplam Süre       : {report.execution_time_seconds:.3f} sn")
+    print("-" * 60)
+
+    if report.mutants:
+        print("📋 Mutant Adayları (Örneklem):")
+        for m in report.mutants[:15]:
+            status_icon = "⚪" if dry_run else ("✅" if m.status in ("KILLED", "TIMEOUT") else "❌")
+            print(f"  {status_icon} [{m.operator_category.upper()}] L{m.line_number}: {m.original_snippet}  -->  {m.mutated_snippet}")
+            if not dry_run and m.killer_test:
+                print(f"      Öldüren Test: {m.killer_test}")
+    print("=" * 60 + "\n")
 
 
 def _run_query_command(query_text: str, as_json: bool = False, provider: str | None = None) -> None:
