@@ -237,3 +237,119 @@ def test_scorecard_layer2_partial_measured():
     assert result.layer2_score == 90
     expected_total = round((result.layer1_score * 0.60) + (90 * 0.40))
     assert result.total_score == expected_total
+
+
+# ── New tests: confidence_score field & panelist integration ───────────────────
+
+def test_rubric_verdict_has_confidence_score_field():
+    """RubricVerdict should carry an optional confidence_score field."""
+    verdict = RubricVerdict(level=7, justification="Good", confidence_score=0.85)
+    assert verdict.confidence_score == pytest.approx(0.85)
+
+
+def test_rubric_verdict_confidence_score_defaults_to_none():
+    verdict = RubricVerdict(level=7, justification="Good")
+    assert verdict.confidence_score is None
+
+
+def test_rubric_verdict_parse_does_not_set_confidence_score():
+    """parse() originates from single-agent path and should leave confidence_score as None."""
+    data = {"level": 8, "justification": "Solid", "cited_evidence": []}
+    verdict = RubricVerdict.parse(data)
+    assert verdict.confidence_score is None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_panelist_mode_produces_confidence_score(monkeypatch):
+    """When panelist mode is active, evaluate() returns a verdict with confidence_score set."""
+    import json as _json
+
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key-for-test")
+    monkeypatch.setenv("WARDEN_LLM_PANELIST_MODE", "true")
+
+    analyst_resp = _json.dumps({
+        "issues": ["No timeout"], "risk_level": "medium", "supporting_evidence": ["db.py"],
+    })
+    defender_resp = _json.dumps({
+        "false_positives": [], "missing_evidence": [], "upheld_issues": ["No timeout"],
+    })
+    judge_resp = _json.dumps({
+        "level": 7, "confidence_score": 0.88,
+        "justification": "One upheld issue", "dissent_notes": "",
+    })
+
+    async def fake_generate_json(prompt, system_instruction, **kwargs):
+        call_count["n"] += 1
+        responses = [analyst_resp, defender_resp, judge_resp]
+        return responses[call_count["n"] - 1], "mock-model"
+
+    call_count = {"n": 0}
+
+    # Patch the factory to return a mock provider
+    mock_provider = MagicMock()
+    mock_provider.generate_json = fake_generate_json
+
+    evidence = CategoryEvidence(
+        files=["db.py"],
+        metrics={"coverage": 80.0},
+        findings=["No DB timeout configured"],
+    )
+
+    with patch(
+        "core.llm.factory.LLMProviderFactory.create",
+        return_value=mock_provider,
+    ):
+        evaluator = RubricEvaluatorService()
+        verdict = await evaluator.evaluate("api_design", evidence, use_panelist=True)
+
+    assert verdict.evaluated is True
+    assert verdict.level == 7
+    assert verdict.confidence_score is not None
+    assert verdict.confidence_score == pytest.approx(0.88, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_use_panelist_false_overrides_env(monkeypatch):
+    """use_panelist=False should bypass panelist even if env var is true."""
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
+    monkeypatch.setenv("WARDEN_LLM_PANELIST_MODE", "true")
+
+    # No GEMINI_API_KEY validation needed since we mock the Gemini call
+    mock_response = MagicMock()
+    mock_response.text = '{"level": 8, "justification": "Fine", "cited_evidence": []}'
+    mock_response.usage_metadata = None
+
+    evidence = CategoryEvidence(files=[], metrics={}, findings=[])
+
+    with patch(
+        "core.services.rubric.RubricEvaluatorService._evaluate_single",
+    ) as mock_single, patch(
+        "core.services.rubric.RubricEvaluatorService._evaluate_panelist",
+    ) as mock_panelist:
+        mock_single.return_value = RubricVerdict(level=8, justification="Fine")
+        evaluator = RubricEvaluatorService()
+        await evaluator.evaluate("api_design", evidence, use_panelist=False)
+
+    mock_single.assert_called_once()
+    mock_panelist.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_use_panelist_true_overrides_env(monkeypatch):
+    """use_panelist=True should engage panelist even if env var is false."""
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
+    monkeypatch.setenv("WARDEN_LLM_PANELIST_MODE", "false")
+
+    evidence = CategoryEvidence(files=[], metrics={}, findings=[])
+
+    with patch(
+        "core.services.rubric.RubricEvaluatorService._evaluate_single",
+    ) as mock_single, patch(
+        "core.services.rubric.RubricEvaluatorService._evaluate_panelist",
+    ) as mock_panelist:
+        mock_panelist.return_value = RubricVerdict(level=7, justification="Panelist", confidence_score=0.8)
+        evaluator = RubricEvaluatorService()
+        await evaluator.evaluate("api_design", evidence, use_panelist=True)
+
+    mock_panelist.assert_called_once()
+    mock_single.assert_not_called()

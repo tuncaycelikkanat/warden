@@ -3,8 +3,10 @@
 import logging
 from typing import Any
 
+from core.llm.anthropic_provider import AnthropicProvider
 from core.llm.base import BaseLLMProvider
 from core.llm.gemini_provider import GeminiProvider
+from core.llm.ollama_provider import OllamaProvider
 from core.llm.openai_provider import OpenAICompatibleProvider
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,10 @@ class LLMProviderFactory:
             return GeminiProvider(models=models, **kwargs)
         elif name in ("openai", "groq", "deepseek", "openrouter"):
             return OpenAICompatibleProvider(models=models, **kwargs)
+        elif name in ("anthropic", "claude"):
+            return AnthropicProvider(models=models, **kwargs)
+        elif name == "ollama":
+            return OllamaProvider(models=models, **kwargs)
         else:
             logger.warning(f"Unknown LLM provider '{provider_name}', falling back to Gemini.")
             return GeminiProvider(models=models, **kwargs)

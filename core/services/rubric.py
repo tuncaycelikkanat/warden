@@ -125,6 +125,7 @@ class RubricVerdict:
     evaluated: bool = True
     reason: str | None = None
     citation_warning: str | None = None
+    confidence_score: float | None = None  # 0.0–1.0; set only in panelist mode
 
     @classmethod
     def parse(cls, data: dict[str, Any]) -> 'RubricVerdict':
@@ -215,8 +216,25 @@ class RubricEvaluatorService:
 
         return verdict
 
-    async def evaluate(self, category_key: str, evidence: CategoryEvidence) -> RubricVerdict:
-        """Evaluates a dynamic category against rubrics using provided evidence."""
+    async def evaluate(
+        self,
+        category_key: str,
+        evidence: CategoryEvidence,
+        use_panelist: bool | None = None,
+    ) -> RubricVerdict:
+        """Evaluates a dynamic category against rubrics using provided evidence.
+
+        Parameters
+        ----------
+        category_key:
+            Rubric category key (must exist in ``RUBRICS``).
+        evidence:
+            Evidence artifacts collected from the target repository.
+        use_panelist:
+            Override for panelist mode. When ``None`` (default), reads from
+            ``WARDEN_LLM_PANELIST_MODE`` env variable via ``LLMConfig``.
+            Pass ``True`` / ``False`` to override explicitly.
+        """
         if category_key not in RUBRICS:
             return RubricVerdict(
                 level=0,
@@ -241,6 +259,32 @@ class RubricEvaluatorService:
                 reason="missing_api_key",
             )
 
+        from core.config.llm_config import LLMConfig
+        llm_cfg = LLMConfig.from_env()
+
+        # Resolve panelist flag: explicit arg wins, else config
+        panelist_active = use_panelist if use_panelist is not None else llm_cfg.panelist_mode
+
+        if panelist_active:
+            return await self._evaluate_panelist(
+                category_key, rubric, evidence, llm_cfg, start_time
+            )
+
+        return await self._evaluate_single(
+            category_key, rubric, evidence, llm_cfg, start_time
+        )
+
+    # ── Single-agent path (original behaviour, unchanged) ─────────────────────
+
+    async def _evaluate_single(
+        self,
+        category_key: str,
+        rubric: dict[int, str],
+        evidence: CategoryEvidence,
+        llm_cfg: Any,
+        start_time: float,
+    ) -> RubricVerdict:
+        """Original single LLM-call evaluation (Layer 2, Gemini)."""
         api_key = os.getenv("GEMINI_API_KEY")
 
         from google import genai
@@ -253,10 +297,7 @@ class RubricEvaluatorService:
                 sanitized_res = self.sanitizer.sanitize(raw_prompt)
                 prompt = sanitized_res.sanitized_text
 
-                from core.config.llm_config import LLMConfig
-                llm_cfg = LLMConfig.from_env()
                 models_to_try = llm_cfg.models
-
                 last_err = None
                 for model_name in models_to_try:
                     try:
@@ -299,10 +340,10 @@ class RubricEvaluatorService:
                 input_tokens = getattr(response_obj.usage_metadata, "prompt_token_count", None)
                 output_tokens = getattr(response_obj.usage_metadata, "candidates_token_count", None)
 
-            # Structured Audit Logging & Latency Tracking
             audit_entry = {
                 "category": category_key,
                 "model": used_model,
+                "mode": "single",
                 "latency_sec": round(latency, 3),
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
@@ -323,6 +364,75 @@ class RubricEvaluatorService:
                 evaluated=False,
                 reason=f"evaluation_error: {e}",
             )
+
+    # ── Panelist path ──────────────────────────────────────────────────────────
+
+    async def _evaluate_panelist(
+        self,
+        category_key: str,
+        rubric: dict[int, str],
+        evidence: CategoryEvidence,
+        llm_cfg: Any,
+        start_time: float,
+    ) -> RubricVerdict:
+        """Multi-agent Analyst → Defender → Judge evaluation path."""
+        from core.llm.factory import LLMProviderFactory
+        from core.llm.panelist import PanelistEvaluator
+
+        provider = LLMProviderFactory.create(
+            provider_name=llm_cfg.provider,
+            models=llm_cfg.models,
+        )
+
+        evaluator = PanelistEvaluator(
+            provider=provider,
+            confidence_threshold=llm_cfg.confidence_threshold,
+            timeout_sec=llm_cfg.timeout_sec,
+        )
+
+        # Build the same evidence string used in the single path
+        raw_prompt = self._build_prompt(category_key, rubric, evidence)
+        sanitized_res = self.sanitizer.sanitize(raw_prompt)
+        # Pass just the evidence JSON section to the panelist
+        evidence_str = json.dumps(
+            {
+                "status": evidence.evidence_collection_status,
+                "errors": evidence.collection_errors,
+                "files_involved": evidence.files,
+                "metrics": evidence.metrics,
+                "key_findings": evidence.findings,
+            },
+            indent=2,
+        )
+
+        panelist_verdict = await evaluator.run(
+            category_key=category_key,
+            rubric=rubric,
+            evidence_str=evidence_str,
+        )
+
+        latency = time.time() - start_time
+        audit_entry = {
+            "category": category_key,
+            "mode": "panelist",
+            "latency_sec": round(latency, 3),
+            "level": panelist_verdict.level,
+            "confidence_score": panelist_verdict.confidence_score,
+            "evaluated": panelist_verdict.evaluated,
+        }
+        self.audit_log.append(audit_entry)
+        logger.info(f"[LLM AUDIT] {audit_entry}")
+
+        # Convert PanelistVerdict → RubricVerdict (shared downstream format)
+        return RubricVerdict(
+            level=panelist_verdict.level,
+            justification=panelist_verdict.justification,
+            cited_evidence=[],
+            evaluated=panelist_verdict.evaluated,
+            reason=panelist_verdict.reason,
+            confidence_score=panelist_verdict.confidence_score,
+        )
+
 
     def _build_prompt(self, category_key: str, rubric: dict[int, str], evidence: CategoryEvidence) -> str:
         """Constructs LLM prompt with rubric anchors, proportional calibration rule, and evidence."""

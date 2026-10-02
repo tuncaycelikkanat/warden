@@ -151,3 +151,85 @@ def test_llm_factory():
     # Unknown provider falls back to Gemini
     p_unknown = LLMProviderFactory.create("unknown_provider", api_key="test-key")
     assert isinstance(p_unknown, GeminiProvider)
+
+
+def test_llm_factory_anthropic():
+    from core.llm.anthropic_provider import AnthropicProvider
+    from core.llm.factory import LLMProviderFactory
+
+    p_anthropic = LLMProviderFactory.create("anthropic", api_key="sk-ant-test")
+    assert isinstance(p_anthropic, AnthropicProvider)
+
+    p_claude = LLMProviderFactory.create("claude", api_key="sk-ant-test")
+    assert isinstance(p_claude, AnthropicProvider)
+
+
+def test_llm_factory_ollama():
+    from core.llm.factory import LLMProviderFactory
+    from core.llm.ollama_provider import OllamaProvider
+
+    p_ollama = LLMProviderFactory.create("ollama")
+    assert isinstance(p_ollama, OllamaProvider)
+    # Ollama is always configured (no real API key needed)
+    assert p_ollama.is_configured() is True
+
+
+def test_llm_factory_groq_and_openrouter():
+    from core.llm.factory import LLMProviderFactory
+
+    p_groq = LLMProviderFactory.create("groq", api_key="gsk-test")
+    assert isinstance(p_groq, OpenAICompatibleProvider)
+
+    p_openrouter = LLMProviderFactory.create("openrouter", api_key="or-test")
+    assert isinstance(p_openrouter, OpenAICompatibleProvider)
+
+
+# ── LLMConfig panelist/confidence tests ───────────────────────────────────────
+
+def test_llm_config_panelist_mode_default():
+    from core.config.llm_config import LLMConfig
+    cfg = LLMConfig()
+    assert cfg.panelist_mode is False
+    assert cfg.confidence_threshold == 0.5
+
+
+def test_llm_config_panelist_mode_from_env_true(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_PANELIST_MODE", "true")
+    cfg = LLMConfig.from_env()
+    assert cfg.panelist_mode is True
+
+
+def test_llm_config_panelist_mode_from_env_false(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_PANELIST_MODE", "false")
+    cfg = LLMConfig.from_env()
+    assert cfg.panelist_mode is False
+
+
+def test_llm_config_confidence_threshold_from_env(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_CONFIDENCE_THRESHOLD", "0.75")
+    cfg = LLMConfig.from_env()
+    assert cfg.confidence_threshold == pytest.approx(0.75)
+
+
+def test_llm_config_confidence_threshold_clamped_to_1(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_CONFIDENCE_THRESHOLD", "2.5")
+    cfg = LLMConfig.from_env()
+    assert cfg.confidence_threshold == 1.0
+
+
+def test_llm_config_confidence_threshold_clamped_to_0(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_CONFIDENCE_THRESHOLD", "-1.0")
+    cfg = LLMConfig.from_env()
+    assert cfg.confidence_threshold == 0.0
+
+
+def test_llm_config_confidence_threshold_invalid_falls_back(monkeypatch):
+    from core.config.llm_config import LLMConfig
+    monkeypatch.setenv("WARDEN_LLM_CONFIDENCE_THRESHOLD", "not-a-float")
+    cfg = LLMConfig.from_env()
+    assert cfg.confidence_threshold == 0.5
