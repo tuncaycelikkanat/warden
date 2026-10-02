@@ -1,5 +1,7 @@
 """Secret leak detection analyzer across Git history using Gitleaks."""
 
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -7,6 +9,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from core.config.secret_scan_config import (
     DEFAULT_SINCE_MONTHS,
@@ -113,6 +116,7 @@ class SecretLeakResult:
     ignored_test_secrets: list[LeakedSecret] = field(default_factory=list)
     scan_scope: str = "last_6_months"
     ignore_audit: IgnoreFileAudit = field(default_factory=IgnoreFileAudit)
+    entropy_findings: list[Any] = field(default_factory=list)
 
 
 class SecretLeakScannerService:
@@ -251,9 +255,22 @@ class SecretLeakScannerService:
                 f"from security penalty."
             )
 
+        entropy_findings = self.scan_entropy(repo_path)
+
         return SecretLeakResult(
             leaked_secrets=leaks,
             ignored_test_secrets=ignored,
             scan_scope=scan_scope,
             ignore_audit=ignore_audit,
+            entropy_findings=entropy_findings,
         )
+
+    def scan_entropy(self, repo_path: Path) -> list[Any]:
+        """Runs Shannon entropy analysis on Python source files in the repository."""
+        try:
+            from core.services.entropy_analyzer import EntropyAnalyzerService
+            analyzer = EntropyAnalyzerService()
+            return analyzer.scan_repository(repo_path)
+        except Exception as err:
+            logger.debug(f"Entropy scan error: {err}")
+            return []

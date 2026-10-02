@@ -314,6 +314,44 @@ def cli() -> None:
         help="Maksimum üretilecek property test sayısı (Varsayılan: 15)",
     )
 
+    # Subcommand: generate-sbom (E4)
+    sbom_parser = subparsers.add_parser(
+        "generate-sbom",
+        help="Proje bağımlılıkları için CycloneDX v1.5 JSON SBOM üretir (E4)",
+        description="Supply chain güvenliği için CycloneDX v1.5 JSON Software Bill of Materials (SBOM) manifesti üretir.",
+    )
+    sbom_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Hedef projenin yolu (Varsayılan: '.')",
+    )
+    sbom_parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="SBOM çıktısının kaydedileceği dosya yolu (örn: sbom.json)",
+    )
+
+    # Subcommand: scan-entropy (E5)
+    entropy_parser = subparsers.add_parser(
+        "scan-entropy",
+        help="Shannon entropisi ile kaynak kodundaki potansiyel sır ve API anahtarlarını tarar (E5)",
+        description="AST analizi ve Shannon entropi metriği ile kod tabanındaki yüksek rastgelelikli sırları tespit eder.",
+    )
+    entropy_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Hedef projenin yolu (Varsayılan: '.')",
+    )
+    entropy_parser.add_argument(
+        "--max-findings",
+        type=int,
+        default=25,
+        help="Maksimum listelenecek bulgu sayısı (Varsayılan: 25)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -339,6 +377,58 @@ def cli() -> None:
 
     elif args.command == "generate-property-tests":
         _run_generate_property_tests(args.target, args.output, args.max_tests)
+
+    elif args.command == "generate-sbom":
+        _run_generate_sbom(args.target, args.output)
+
+    elif args.command == "scan-entropy":
+        _run_scan_entropy(args.target, args.max_findings)
+
+
+def _run_generate_sbom(target: str, output: str | None) -> None:
+    """Generates CycloneDX v1.5 JSON SBOM for the target repository."""
+    from pathlib import Path
+
+    from core.services.sbom_generator import SBOMGeneratorService
+
+    p = Path(target).resolve()
+    print(f"[*] Analyzing manifests and generating CycloneDX v1.5 SBOM for {p} ...")
+    service = SBOMGeneratorService()
+    bom = service.generate_sbom(p)
+    print(f"[+] CycloneDX SBOM başarıyla oluşturuldu: {len(bom.components)} bileşen tespit edildi.")
+    for comp in bom.components[:10]:
+        print(f"    - {comp.name} ({comp.version}) [{comp.scope}] -> {comp.purl}")
+    if len(bom.components) > 10:
+        print(f"    ... ve {len(bom.components) - 10} diğer bileşen")
+
+    if output:
+        out_path = Path(output).resolve()
+        service.export_json(p, output_path=out_path)
+        print(f"[✓] CycloneDX SBOM dosyaya kaydedildi: {out_path}")
+    else:
+        print("\n--- CycloneDX v1.5 JSON Önizleme ---")
+        preview = bom.to_json(indent=2)[:600]
+        print(preview + ("\n... [tam çıktıyı kaydetmek için --output belirtin]" if len(bom.to_json()) > 600 else ""))
+
+
+def _run_scan_entropy(target: str, max_findings: int) -> None:
+    """Scans repository files for high-entropy secrets."""
+    from pathlib import Path
+
+    from core.services.entropy_analyzer import EntropyAnalyzerService
+
+    p = Path(target).resolve()
+    print(f"[*] Scanning {p} using Shannon entropy analysis for potential secrets...")
+    analyzer = EntropyAnalyzerService()
+    findings = analyzer.scan_repository(p, max_findings=max_findings)
+
+    if not findings:
+        print("[✓] Kod tabanında şüpheli yüksek entropili sır bulunamadı (Temiz).")
+        return
+
+    print(f"[⚠️] {len(findings)} yüksek entropili dize / potansiyel sır tespit edildi:")
+    for f in findings:
+        print(f"    - [{f.confidence}] {f.file}:{f.line} -> {f.variable_name} ({f.masked_value}) - H={f.entropy_score:.2f} [{f.charset_type}]")
 
 
 def _run_generate_property_tests(target: str, output: str | None, max_tests: int) -> None:
