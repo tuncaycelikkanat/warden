@@ -352,6 +352,36 @@ def cli() -> None:
         help="Maksimum listelenecek bulgu sayısı (Varsayılan: 25)",
     )
 
+    # Subcommand: check-attack-surface (E1)
+    attack_parser = subparsers.add_parser(
+        "check-attack-surface",
+        help="Proje bağımlılık grafını analiz ederek PageRank kritikliği ve saldırı yüzeyini hesaplar (E1)",
+        description="networkx ile bağımlılık grafı kurarak en kritik paketleri, blast radius ve topolojiyi inceler.",
+    )
+    attack_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Hedef projenin yolu (Varsayılan: '.')",
+    )
+    attack_parser.add_argument(
+        "--top",
+        type=int,
+        default=10,
+        help="Listelenecek en kritik paket sayısı (Varsayılan: 10)",
+    )
+
+    # Subcommand: check-typosquatting (E2)
+    typo_parser = subparsers.add_parser(
+        "check-typosquatting",
+        help="Paket adını PyPI popüler kütüphanelerine karşı typosquatting testine tabi tutar (E2)",
+        description="Jaro-Winkler, Levenshtein, permütasyon ve homoglyph teknikleri ile typosquatting analizi yapar.",
+    )
+    typo_parser.add_argument(
+        "package_name",
+        help="Denetlenecek şüpheli paket adı (örn: reqeusts, colorma)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -383,6 +413,56 @@ def cli() -> None:
 
     elif args.command == "scan-entropy":
         _run_scan_entropy(args.target, args.max_findings)
+
+    elif args.command == "check-attack-surface":
+        _run_check_attack_surface(args.target, args.top)
+
+    elif args.command == "check-typosquatting":
+        _run_check_typosquatting(args.package_name)
+
+
+def _run_check_attack_surface(target: str, top: int) -> None:
+    """Runs networkx PageRank and blast radius attack surface analysis."""
+    from pathlib import Path
+
+    from core.services.dependency_graph_analyzer import DependencyGraphAnalyzer
+
+    p = Path(target).resolve()
+    print(f"[*] Analyzing dependency graph and attack surface for {p} using networkx...")
+    analyzer = DependencyGraphAnalyzer()
+    report = analyzer.analyze(p, top_n=top)
+
+    print(f"[+] Toplam Paket: {report.total_packages} (Doğrudan: {report.direct_packages_count}, Dolaylı: {report.transitive_packages_count})")
+    print(f"[+] Bağımlılık Kenarları: {report.total_edges} · Graf Yoğunluğu: %{round(report.graph_density * 100, 2)}")
+
+    print(f"\n--- En Kritik Bağımlılıklar (PageRank Skoru) ---")
+    for node in report.critical_dependencies:
+        scope_str = "DOĞRUDAN" if node.is_direct else "DOLAYLI"
+        print(f"  #{node.criticality_rank} {node.name} ({node.version}) [{scope_str}] - PageRank: {node.pagerank_score:.4f}, Tahribat Yarıçapı (Blast Radius): {node.blast_radius} bileşen")
+
+    print(f"\n--- En Yüksek Tahribat Yarıçapı (En Çok Bileşenin Bağlı Olduğu Paketler) ---")
+    for node in report.high_blast_radius_nodes[:5]:
+        print(f"  - {node.name}: {node.blast_radius} bileşen bu pakete bağımlı")
+
+
+def _run_check_typosquatting(package_name: str) -> None:
+    """Checks a candidate package name for typosquatting attacks."""
+    from core.services.typosquatting_detector import TyposquattingDetector
+
+    print(f"[*] Checking '{package_name}' for typosquatting attacks against top PyPI packages...")
+    detector = TyposquattingDetector()
+    match = detector.detect(package_name)
+
+    if not match:
+        print(f"[✓] '{package_name}' temiz görünüyor (Bilinen bir popüler paket taklidi tespit edilmedi).")
+    else:
+        print(f"[🚨] TYPOSQUATTING TESPİT EDİLDİ!")
+        print(f"    - Şüpheli Paket: {match.suspect_package}")
+        print(f"    - Hedef Alınan Popüler Paket: {match.target_package}")
+        print(f"    - Benzerlik Skoru: %{round(match.similarity_score * 100, 1)}")
+        print(f"    - Kullanılan Teknik: {match.technique}")
+        print(f"    - Risk Seviyesi: {match.risk_level}")
+        print(f"    - Detay: {match.reason}")
 
 
 def _run_generate_sbom(target: str, output: str | None) -> None:

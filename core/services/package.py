@@ -135,6 +135,18 @@ class PackageCheckerService:
         if pkg_lower in top_lower_map:
             return None
 
+        # 1. Advanced TyposquattingDetector (Jaro-Winkler, Transposition, Separators, Homoglyphs)
+        try:
+            from core.services.typosquatting_detector import TyposquattingDetector
+            detector = TyposquattingDetector()
+            detector.set_top_packages(top_packages)
+            match = detector.detect(package_name)
+            if match:
+                return match.target_package
+        except Exception as err:
+            logger.debug(f"TyposquattingDetector error fallback: {err}")
+
+        # 2. Fallback to basic Levenshtein check
         for popular_lower, popular_orig in top_lower_map.items():
             threshold = 1 if len(popular_lower) <= 4 else 2
             distance = _levenshtein_distance(pkg_lower, popular_lower)
