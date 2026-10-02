@@ -5,8 +5,11 @@ import logging
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from core.services.commit_ai_detector import CommitAIDetector
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +76,16 @@ class CommitHygieneResult:
     avg_length: float
     measured: bool = True
     reason: str | None = None
+    ai_commits_count: int = 0
+    ai_commits_ratio: float = 0.0
+    ai_findings: list[dict[str, Any]] = field(default_factory=list)
 
 
 class CommitHygieneService:
     """Service to evaluate git commit conventions and message quality."""
+
+    def __init__(self) -> None:
+        self.ai_detector = CommitAIDetector()
 
     def _is_bot_commit(self, author_name: str, author_email: str) -> bool:
         """Determines if a commit was authored by an automated bot based on metadata."""
@@ -212,6 +221,8 @@ class CommitHygieneService:
             score = 100.0 - ((bad_ratio / 0.05) * 8.0)
             final_score = max(20.0, min(100.0, round(score, 1)))
 
+            ai_analysis = self.ai_detector.analyze_commit_batch(human_subjects)
+
             return CommitHygieneResult(
                 score=final_score,
                 total_commits=total_commits,
@@ -220,6 +231,9 @@ class CommitHygieneService:
                 avg_length=round(avg_length, 1),
                 measured=True,
                 reason=None,
+                ai_commits_count=ai_analysis["ai_commits_count"],
+                ai_commits_ratio=ai_analysis["ai_commits_ratio"],
+                ai_findings=ai_analysis["findings"],
             )
 
         return await asyncio.to_thread(_sync_analyze)

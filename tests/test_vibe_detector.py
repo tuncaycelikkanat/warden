@@ -107,3 +107,33 @@ except Exception:
         d = result.to_dict()
         assert "vibe_score" in d
         assert len(d["findings"]) > 0
+
+    def test_semantic_slop_and_prompt_leak_integration(
+        self, detector: VibeCodingDetector, tmp_path: Path
+    ) -> None:
+        mixed_file = tmp_path / "mixed.py"
+        mixed_file.write_text("""
+# Here is the updated code solution for your review
+# Feel free to modify this function
+SYSTEM_PROMPT = "You are a helpful assistant"
+raw_token = "<|im_start|>system"
+
+def calculate_something(x):
+    return x * 2
+""")
+        findings = detector.analyze_file(mixed_file, tmp_path)
+        rules = [f.rule for f in findings]
+        assert any("Semantic AI Slop" in r for r in rules)
+        assert any("Prompt Security" in r for r in rules)
+
+    def test_repository_with_enriched_metadata(
+        self, detector: VibeCodingDetector, tmp_path: Path
+    ) -> None:
+        (tmp_path / "app.py").write_text("""
+# Step 1: run application
+print("hello")
+""")
+        res = detector.analyze_repository(tmp_path)
+        d = res.to_dict()
+        assert "semantic_slop" in d
+        assert "prompt_leaks" in d
