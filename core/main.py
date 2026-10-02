@@ -480,6 +480,20 @@ def cli() -> None:
     )
     pdf_parser.add_argument("--audit-id", type=int, default=None, help="Mevcut bir veritabanı audit ID'sinden üret")
 
+    # Subcommand: query (G1)
+    query_parser = subparsers.add_parser(
+        "query",
+        help="Dashboard ve denetim verilerini doğal dil ile sorgular (Text-to-SQL) (G1)",
+        description="Doğal dildeki soruları güvenli SQL sorgularına çevirerek veritabanında çalıştırır.",
+    )
+    query_parser.add_argument("query", help="Sorulacak doğal dil sorusu (örn: 'En düşük skorlu 5 repo')")
+    query_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    query_parser.add_argument(
+        "--provider",
+        default=None,
+        help="Kullanılacak LLM sağlayıcısı (gemini, openai, ollama vb.)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -532,6 +546,55 @@ def cli() -> None:
 
     elif args.command == "export-pdf":
         _run_export_pdf(args.target, args.output, args.audit_id)
+
+    elif args.command == "query":
+        _run_query_command(args.query, as_json=args.json, provider=args.provider)
+
+
+def _run_query_command(query_text: str, as_json: bool = False, provider: str | None = None) -> None:
+    """Executes natural language dashboard query and prints tabular or JSON output."""
+    import json
+    import sys
+
+    from core.infra.database import create_db_and_tables
+    from core.services.nl_query_service import NaturalLanguageQueryService
+
+    create_db_and_tables()
+    service = NaturalLanguageQueryService()
+
+    try:
+        res = service.execute_query(query_text, provider_name=provider)
+    except Exception as e:
+        print(f"[!] Sorgu hatası: {e}")
+        sys.exit(1)
+
+    if as_json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return
+
+    print(f"\n🔍 Soru: {res['query']}")
+    print(f"💡 Açıklama: {res['explanation']}")
+    print(f"📊 Önerilen Grafik: {res['chart_type']} | Süre: {res['execution_time_ms']} ms")
+    print(f"📝 SQL: {res['sql']}\n")
+
+    cols = res["columns"]
+    data = res["data"]
+
+    if not data:
+        print("[i] Sonuç bulunamadı.")
+        return
+
+    # Print clean ASCII table
+    col_widths = {c: max(len(c), max(len(str(r.get(c, ""))) for r in data)) for c in cols}
+    header_str = " | ".join(c.ljust(col_widths[c]) for c in cols)
+    sep_str = "-+-".join("-" * col_widths[c] for c in cols)
+
+    print(header_str)
+    print(sep_str)
+    for r in data:
+        row_str = " | ".join(str(r.get(c, "")).ljust(col_widths[c]) for c in cols)
+        print(row_str)
+    print(f"\nToplam {res['row_count']} satır listelendi.")
 
 
 def _run_export_sarif(target: str, output: str, audit_id: int | None = None) -> None:

@@ -306,3 +306,26 @@ async def get_report_pdf(report_id: int):
         headers={"Content-Disposition": f"attachment; filename=warden-executive-report-{report_id}.pdf"},
     )
 
+
+from pydantic import BaseModel, Field
+
+
+class DashboardQueryRequest(BaseModel):
+    query: str = Field(..., description="Doğal dilde analiz veya dashboard sorusu")
+    provider: str | None = Field(default=None, description="Opsiyonel LLM sağlayıcı adı (örn: gemini, openai, ollama)")
+
+
+@router.post("/query")
+async def execute_dashboard_query(body: DashboardQueryRequest) -> dict[str, Any]:
+    """Translates natural language questions to secure SQL queries and returns tabular results with chart recommendations."""
+    from core.services.nl_query_service import NaturalLanguageQueryService
+
+    service = NaturalLanguageQueryService()
+    try:
+        return service.execute_query(body.query, provider_name=body.provider)
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Sorgu yürütülürken hata oluştu: {exc}")
+
+
