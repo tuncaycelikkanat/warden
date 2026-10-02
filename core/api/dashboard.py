@@ -97,6 +97,19 @@ async def get_trend(
     }
 
 
+@router.get("/forecast")
+async def get_forecast(
+    repo_path: str = Query(default=".", description="Repository path to forecast quality trends for"),
+    horizon: int = Query(default=5, ge=1, le=20, description="Number of steps into future to predict"),
+) -> dict[str, Any]:
+    """Returns time-series quality forecast with 95% confidence intervals and early warnings (C3)."""
+    from core.services.trend_forecaster import TrendForecasterService
+
+    service = TrendForecasterService()
+    report = service.forecast_for_repo(repo_path=repo_path, horizon=horizon)
+    return report.to_dict()
+
+
 @router.get("/report/{report_id}")
 async def get_report_detail(report_id: int) -> dict[str, Any]:
     """Returns full details of a specific audit report including member scores."""

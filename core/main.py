@@ -519,6 +519,18 @@ def cli() -> None:
     classify_parser.add_argument("--override", action="append", default=None, help="Ağırlık ezme (Örn: --override security_supply_chain=0.40)")
     classify_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
 
+    # Subcommand: forecast (C3)
+    forecast_parser = subparsers.add_parser(
+        "forecast",
+        help="Denetim geçmişi üzerinden gelecek kod kalitesi ve teknik borç trendini tahminler (C3)",
+        description="Holt's Linear Exponential Smoothing ile gelecek denetim puanlarını ve erken uyarıları hesaplar.",
+    )
+    forecast_parser.add_argument("target", nargs="?", default=".", help="Hedef proje yolu (Varsayılan: '.')")
+    forecast_parser.add_argument("--horizon", type=int, default=5, help="Gelecek tahmin adım sayısı (Varsayılan: 5)")
+    forecast_parser.add_argument("--dimension", default="total", choices=["total", "all"], help="Tahmin edilecek boyut ('total' veya 'all')")
+    forecast_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    forecast_parser.add_argument("--output", "-o", default=None, help="Tahmin raporunu JSON dosyasına kaydet")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -593,6 +605,86 @@ def cli() -> None:
             overrides=args.override,
             as_json=args.json,
         )
+
+    elif args.command == "forecast":
+        _run_forecast_command(
+            args.target,
+            horizon=args.horizon,
+            dimension=args.dimension,
+            as_json=args.json,
+            output_file=args.output,
+        )
+
+
+def _run_forecast_command(
+    target: str,
+    horizon: int = 5,
+    dimension: str = "total",
+    as_json: bool = False,
+    output_file: str | None = None,
+) -> None:
+    """Executes time-series quality trend forecasting and displays projections."""
+    import json
+    from pathlib import Path
+    from core.infra.database import create_db_and_tables
+    from core.services.trend_forecaster import TrendForecasterService
+
+    create_db_and_tables()
+    target_path = Path(target)
+    service = TrendForecasterService()
+    report = service.forecast_for_repo(str(target_path), horizon=horizon)
+    data = report.to_dict()
+
+    if output_file:
+        out_p = Path(output_file)
+        out_p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        if not as_json:
+            print(f"[✓] Tahmin raporu kaydedildi: {output_file}")
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    ov = report.overall_forecast
+    trend_icon = {
+        "IMPROVING": "↗️ Yükseliş",
+        "STABLE": "➡️ Stabil",
+        "DEGRADING": "↘️ Bozulma",
+        "CRITICAL_DROP": "⚠️ Kritik Düşüş",
+    }.get(ov.trend_direction, ov.trend_direction)
+
+    print("\n" + "=" * 65)
+    print("📈 WARDEN KALİTE TREND TAHMİNLEME (HOLT'S LINEAR FORECAST)")
+    print("=" * 65)
+    print(f"📁 Hedef Depo          : {target_path.resolve()}")
+    print(f"📊 İncelenen Denetim   : {report.total_audits_analyzed}")
+    print(f"🎯 Mevcut Kalite Skoru : {ov.current_score:.0f} / 100 ({ov.current_grade})")
+    print(f"⚡ Kalite İvmesi       : {ov.velocity_per_audit:+.2f} puan / audit")
+    print(f"🧭 Trend Yönü          : {trend_icon}")
+    print("-" * 65)
+
+    if ov.status == "INSUFFICIENT_DATA":
+        print(f"[!] {ov.early_warning or 'Yetersiz veri.'}")
+        print("=" * 65 + "\n")
+        return
+
+    if ov.early_warning:
+        print(f"🚨 {ov.early_warning}\n")
+
+    print(f"🔮 Gelecek {horizon} Denetim Tahmini (95% Güven Bandı):")
+    print(f"  {'Adım':<8} | {'Tahmini Skor':<14} | {'Harf Notu':<10} | {'95% Güven Aralığı':<18}")
+    print("  " + "-" * 56)
+    for p in ov.forecast_points:
+        bounds_str = f"[{p.lower_bound_95:.1f} - {p.upper_bound_95:.1f}]"
+        print(f"  +{p.step:<7} | {p.predicted_score:>10.1f}   | {p.projected_grade:>6}     | {bounds_str:>18}")
+
+    if dimension == "all" and report.dimension_forecasts:
+        print("\n" + "-" * 65)
+        print("🔍 ALT GRUP KALİTE İVMELERİ (Velocity per Audit):")
+        for dim_k, dim_f in report.dimension_forecasts.items():
+            print(f"  • {dim_k:<24}: {dim_f.current_score:>5.1f} ({dim_f.current_grade}) -> İvme: {dim_f.velocity_per_audit:+.2f} ({dim_f.trend_direction})")
+
+    print("\n" + "=" * 65 + "\n")
 
 
 def _run_classify_command(
