@@ -525,6 +525,38 @@ async def github_webhook_endpoint(
     }
 
 
+@router.get("/metrics/ck")
+async def get_ck_metrics(
+    target: str = Query(default="core", description="Taranacak dizin veya paket"),
+    top: int = Query(default=15, ge=1, le=100, description="Döndürülecek en karmaşık sınıf sayısı"),
+    smells_only: bool = Query(default=False, description="Yalnızca mimari kokusu olan sınıfları listele"),
+) -> dict[str, Any]:
+    """Computes Chidamber & Kemerer (CK) Object-Oriented metrics and architectural smell detections."""
+    from core.services.ck_metrics_analyzer import CKMetricsAnalyzer
+
+    analyzer = CKMetricsAnalyzer()
+    try:
+        report = analyzer.analyze(target)
+        classes = report.high_risk_classes if smells_only else report.classes
+        return {
+            "target_path": report.target_path,
+            "total_classes_analyzed": report.total_classes_analyzed,
+            "avg_wmc": report.avg_wmc,
+            "max_wmc": report.max_wmc,
+            "avg_dit": report.avg_dit,
+            "max_dit": report.max_dit,
+            "avg_cbo": report.avg_cbo,
+            "max_cbo": report.max_cbo,
+            "avg_lcom4": report.avg_lcom4,
+            "smells_summary": report.smells_summary,
+            "classes": [c.to_dict() for c in classes[:top]],
+            "summary": report.summary,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"CK metrikleri hesaplanırken hata: {exc}")
+
+
+
 
 
 

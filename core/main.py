@@ -387,6 +387,18 @@ def cli() -> None:
         help="Hedef projenin yolu (Varsayılan: '.')",
     )
 
+    # Subcommand: check-ck (F1/F2)
+    ck_parser = subparsers.add_parser(
+        "check-ck",
+        help="Chidamber & Kemerer (CK) nesne yönelimli mimari karmaşıklık metriklerini ve mimari kokuları hesaplar (F1/F2)",
+        description="WMC, DIT, NOC, CBO, RFC ve LCOM metrikleriyle God Class, Brain Class ve High Coupling kokularını tespit eder.",
+    )
+    ck_parser.add_argument("target", nargs="?", default="core", help="Taranacak dizin veya paket (Varsayılan: 'core')")
+    ck_parser.add_argument("--top", type=int, default=15, help="Listelenecek en karmaşık sınıf sayısı (Varsayılan: 15)")
+    ck_parser.add_argument("--smells-only", action="store_true", default=False, help="Yalnızca mimari kokusu olan sınıfları listele")
+    ck_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    ck_parser.add_argument("--output", "-o", default=None, help="CK metrik raporunu JSON dosyasına kaydet")
+
     # Subcommand: metrics (G6)
     metrics_parser = subparsers.add_parser(
         "metrics",
@@ -613,6 +625,15 @@ def cli() -> None:
 
     elif args.command == "check-cycles":
         _run_check_cycles(args.target)
+
+    elif args.command == "check-ck":
+        _run_check_ck(
+            args.target,
+            top=args.top,
+            smells_only=args.smells_only,
+            as_json=args.json,
+            output_file=args.output,
+        )
 
     elif args.command == "metrics":
         _run_metrics_command(args.json)
@@ -1372,6 +1393,81 @@ def _run_check_cycles(target: str) -> None:
             path_str = " -> ".join(cycle.cycle_path)
             print(f"\n  #{i} Döngü ({cycle.length} modül): {path_str}")
             print(f"     💡 Çözüm Önerisi: {cycle.break_suggestion}")
+
+
+def _run_check_ck(
+    target: str,
+    top: int = 15,
+    smells_only: bool = False,
+    as_json: bool = False,
+    output_file: str | None = None,
+) -> None:
+    """Computes Chidamber & Kemerer (CK) Object-Oriented metrics and displays smells."""
+    import json
+    from pathlib import Path
+    from core.services.ck_metrics_analyzer import CKMetricsAnalyzer
+
+    p = Path(target).resolve()
+    if not as_json:
+        print(f"[*] Analyzing Python classes in {p} using CK Object-Oriented Metrics Suite...")
+
+    analyzer = CKMetricsAnalyzer()
+    report = analyzer.analyze(p)
+    classes = report.high_risk_classes if smells_only else report.classes
+
+    data = report.to_dict()
+    data["classes"] = [c.to_dict() for c in classes[:top]]
+    data["high_risk_classes"] = [c.to_dict() for c in report.high_risk_classes[:top]]
+
+    if output_file:
+        out_p = Path(output_file).resolve()
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"[✓] CK Metrik raporu kaydedildi: {out_p}")
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    print("\n" + "=" * 72)
+    print("🏛️  WARDEN CHIDAMBER & KEMERER (CK) NESNE YÖNELİMLİ MİMARİ METRİKLERİ")
+    print("=" * 72)
+    print(f"📁 Hedef Dizin        : {p}")
+    print(f"📦 Analiz Edilen Sınıf: {report.total_classes_analyzed} sınıf")
+    print(f"⚡ Ortalama WMC       : {report.avg_wmc:.1f} (Max: {report.max_wmc})")
+    print(f"🌲 Ortalama DIT       : {report.avg_dit:.1f} (Max: {report.max_dit})")
+    print(f"🔗 Ortalama CBO       : {report.avg_cbo:.1f} (Max: {report.max_cbo})")
+    print(f"🧩 Ortalama LCOM4     : {report.avg_lcom4:.1f}")
+    print("-" * 72)
+
+    if report.smells_summary:
+        print("🚨 TESPİT EDİLEN MİMARİ KOKULAR (ARCHITECTURAL SMELLS):")
+        for smell, count in sorted(report.smells_summary.items(), key=lambda x: x[1], reverse=True):
+            print(f"  • {smell:<24}: {count} sınıf")
+        print("-" * 72)
+
+    print(f"\n📊 EN KRİTİK {min(top, len(classes))} SINIF (WMC, CBO, LCOM):")
+    print(f"  {'Sınıf Adı':<28} | {'WMC':<5} | {'DIT':<4} | {'CBO':<5} | {'RFC':<5} | {'LCOM4':<6} | {'Kokular'}")
+    print("  " + "-" * 72)
+
+    for c in classes[:top]:
+        smells_str = ", ".join(c.detected_smells) if c.detected_smells else "Temiz ✓"
+        print(f"  {c.class_name:<28} | {c.wmc:>4}  | {c.dit:>3}  | {c.cbo:>4}  | {c.rfc:>4}  | {c.lcom4:>5}  | {smells_str}")
+
+    if any(c.recommendations for c in classes[:top]):
+        print("\n" + "-" * 72)
+        print("💡 ÖNERİLEN MİMARİ REFACTORING AKSİYONLARI:")
+        rec_idx = 1
+        for c in classes[:top]:
+            for r in c.recommendations:
+                print(f"  {rec_idx}. [{c.class_name}] {r}")
+                rec_idx += 1
+                if rec_idx > 5:
+                    break
+            if rec_idx > 5:
+                break
+
+    print("\n" + "=" * 72 + "\n")
 
 
 def _run_check_attack_surface(target: str, top: int) -> None:
