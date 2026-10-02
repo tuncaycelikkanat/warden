@@ -531,6 +531,18 @@ def cli() -> None:
     forecast_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
     forecast_parser.add_argument("--output", "-o", default=None, help="Tahmin raporunu JSON dosyasına kaydet")
 
+    # Subcommand: anomaly (C4)
+    anomaly_parser = subparsers.add_parser(
+        "anomaly",
+        help="Proje denetim skorlarındaki çok değişkenli korelasyon, kovaryans ve yapısal anomalileri tespit eder (C4)",
+        description="Mahalanobis kovaryans mesafesi, Autoencoder rekonstrüksiyon hatası ve Isolation Forest ile kök neden analizi yapar.",
+    )
+    anomaly_parser.add_argument("target", nargs="?", default=".", help="Hedef proje yolu veya denetim ID (Varsayılan: '.')")
+    anomaly_parser.add_argument("--audit-id", type=int, default=None, help="Spesifik bir denetim ID'sini analiz et")
+    anomaly_parser.add_argument("--method", default="hybrid", choices=["hybrid", "mahalanobis", "autoencoder", "isolation_forest"], help="Kullanılacak anomali algoritması (Varsayılan: 'hybrid')")
+    anomaly_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    anomaly_parser.add_argument("--output", "-o", default=None, help="Anomali raporunu JSON dosyasına kaydet")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -615,6 +627,16 @@ def cli() -> None:
             output_file=args.output,
         )
 
+    elif args.command == "anomaly":
+        _run_anomaly_command(
+            args.target,
+            audit_id=args.audit_id,
+            method=args.method,
+            as_json=args.json,
+            output_file=args.output,
+        )
+
+
 
 def _run_forecast_command(
     target: str,
@@ -685,6 +707,87 @@ def _run_forecast_command(
             print(f"  • {dim_k:<24}: {dim_f.current_score:>5.1f} ({dim_f.current_grade}) -> İvme: {dim_f.velocity_per_audit:+.2f} ({dim_f.trend_direction})")
 
     print("\n" + "=" * 65 + "\n")
+
+
+def _run_anomaly_command(
+    target: str,
+    audit_id: int | None = None,
+    method: str = "hybrid",
+    as_json: bool = False,
+    output_file: str | None = None,
+) -> None:
+    """Executes multi-model score anomaly detection and root cause attribution."""
+    import json
+    from pathlib import Path
+    from core.infra.database import create_db_and_tables
+    from core.services.score_anomaly_service import ScoreAnomalyService
+
+    create_db_and_tables()
+    service = ScoreAnomalyService()
+
+    try:
+        if audit_id is not None:
+            report = service.evaluate_audit_id(audit_id, method=method)
+            target_desc = f"Audit #{audit_id}"
+        elif target.isdigit():
+            report = service.evaluate_audit_id(int(target), method=method)
+            target_desc = f"Audit #{target}"
+        else:
+            target_path = Path(target)
+            report = service.evaluate_latest(str(target_path), method=method)
+            target_desc = f"Hedef Proje: {target_path.resolve()}"
+    except ValueError as val_err:
+        print(f"[!] Hata: {val_err}")
+        return
+
+    data = report.to_dict()
+
+    if output_file:
+        out_p = Path(output_file).resolve()
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"[✓] Anomali analiz raporu kaydedildi: {out_p}")
+
+    if as_json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    severity_icon = {
+        "CRITICAL": "🚨 KRİTİK ANOMALİ",
+        "HIGH": "⚠️  YÜKSEK ANOMALİ",
+        "MEDIUM": "⚡ ORTA SEVİYE ANOMALİ",
+        "NORMAL": "✅ NORMAL DAĞILIM",
+    }.get(report.severity, report.severity)
+
+    print("\n" + "=" * 68)
+    print("🛡️  WARDEN GELİŞMİŞ SKOR ANOMALİ TESPİTİ & KÖK NEDEN ANALİZİ (C4)")
+    print("=" * 68)
+    print(f"🎯 Hedef              : {target_desc}")
+    print(f"🔬 Değerlendirme Modu : {method.upper()} (Mahalanobis + Autoencoder + Isolation Forest)")
+    print(f"📊 Teşhis             : {severity_icon} (Konsensüs Skoru: %{report.consensus_score:.1f})")
+    print(f"📐 Mahalanobis D_M^2  : {report.mahalanobis_distance:.2f} (Chi-Square p-değeri: {report.p_value:.4f})")
+    print(f"🤖 Rekonstrüksiyon MSE: {report.reconstruction_mse:.2f}")
+    print(f"🌲 Isolation Forest   : %{report.isolation_forest_score:.1f}")
+    print("-" * 68)
+
+    print(f"📝 Özet: {report.verdict_summary}")
+
+    if report.top_contributors:
+        print("\n" + "-" * 68)
+        print("🔍 EN ÇOK ETKİ EDEN KALİTE BOYUTLARI (TOP CONTRIBUTORS):")
+        print(f"  {'Boyut':<22} | {'Katkı %':<9} | {'Mevcut':<8} | {'Beklenen':<8} | {'Sapma':<8} | {'Yön'}")
+        print("  " + "-" * 64)
+        for c in report.top_contributors:
+            dir_str = "🔻 DÜŞÜŞ" if c.direction == "DROP" else "🔺 ARTIŞ"
+            print(f"  {c.dimension:<22} | %{c.contribution_pct:>6.1f} | {c.actual_value:>6.1f}   | {c.expected_mean:>6.1f}   | {c.deviation:>+6.1f}   | {dir_str}")
+
+    if report.remediation_actions:
+        print("\n" + "-" * 68)
+        print("💡 ÖNERİLEN İYİLEŞTİRME AKSİYONLARI:")
+        for i, act in enumerate(report.remediation_actions, start=1):
+            print(f"  {i}. {act}")
+
+    print("\n" + "=" * 68 + "\n")
 
 
 def _run_classify_command(

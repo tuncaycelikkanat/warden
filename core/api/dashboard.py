@@ -342,3 +342,47 @@ async def execute_dashboard_query(body: DashboardQueryRequest) -> dict[str, Any]
         raise HTTPException(status_code=500, detail=f"Sorgu yürütülürken hata oluştu: {exc}")
 
 
+class ScoreAnomalyEvaluateRequest(BaseModel):
+    scorecard: dict[str, Any] = Field(..., description="Denetim skor kartı veya metrik sözlüğü")
+    method: str = Field(default="hybrid", description="Anomali yöntemi: hybrid | mahalanobis | autoencoder | isolation_forest")
+
+
+@router.get("/anomaly/{audit_id}")
+async def get_audit_anomaly(
+    audit_id: int,
+    method: str = Query(default="hybrid", description="Anomali yöntemi: hybrid | mahalanobis | autoencoder | isolation_forest"),
+) -> dict[str, Any]:
+    """Evaluates historical audit by ID for multi-dimensional statistical, correlation, and structural anomalies."""
+    from core.services.score_anomaly_service import ScoreAnomalyService
+
+    service = ScoreAnomalyService()
+    try:
+        report = service.evaluate_audit_id(audit_id, method=method)
+    except ValueError as val_err:
+        raise HTTPException(status_code=404, detail=str(val_err))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Anomali analizi yürütülürken hata: {exc}")
+
+    return {
+        "audit_id": audit_id,
+        "anomaly": report.to_dict(),
+    }
+
+
+@router.post("/anomaly/evaluate")
+async def evaluate_scorecard_anomaly(body: ScoreAnomalyEvaluateRequest) -> dict[str, Any]:
+    """Dynamically evaluates an arbitrary scorecard for statistical, correlation, and reconstruction anomalies."""
+    from core.services.score_anomaly_service import ScoreAnomalyService
+
+    service = ScoreAnomalyService()
+    try:
+        report = service.evaluate_scorecard(body.scorecard, method=body.method)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Skor kartı değerlendirilirken hata: {exc}")
+
+    return {
+        "evaluation": report.to_dict(),
+    }
+
+
+
