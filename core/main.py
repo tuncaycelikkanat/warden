@@ -183,6 +183,12 @@ def _run_audit_command(
     except Exception as err:
         logger.debug(f"Could not run anomaly detection: {err}")
 
+    # Test Quality & Fake Tests (D2)
+    tq = res.get("test_quality_meta", {})
+    fake_count = tq.get("fake_tests", 0)
+    if fake_count > 0:
+        print(f"[⚠️] Sahte/Trivial Test Uyarısı: {fake_count} assertion'sız test tespit edildi!")
+
     print(f"[+] Saved to DB (ID: {db_id}) and {md_path}")
 
     if min_score is not None and total_score < min_score:
@@ -283,6 +289,31 @@ def cli() -> None:
     milestone_parser.add_argument("--label", default="baseline", help="Milestone etiketi (Varsayılan: 'baseline')")
     milestone_parser.add_argument("--clear", action="store_true", help="Mevcut milestone işaretini kaldırır")
 
+    # Subcommand: generate-property-tests (D3)
+    prop_parser = subparsers.add_parser(
+        "generate-property-tests",
+        help="Proje AST analizinden Hypothesis tabanlı property-based test taslakları üretir (D3)",
+        description="Fonksiyon imzaları ve tip ipuçlarını inceleyerek idempotence, boundedness ve roundtrip testleri sentezler.",
+    )
+    prop_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Hedef projenin yolu (Varsayılan: '.')",
+    )
+    prop_parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Üretilen test dosyasının kaydedileceği yol (örn: tests/test_properties_generated.py)",
+    )
+    prop_parser.add_argument(
+        "--max-tests",
+        type=int,
+        default=15,
+        help="Maksimum üretilecek property test sayısı (Varsayılan: 15)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -305,6 +336,35 @@ def cli() -> None:
 
     elif args.command == "milestone":
         _run_milestone_command(args.audit_id, args.label, args.clear)
+
+    elif args.command == "generate-property-tests":
+        _run_generate_property_tests(args.target, args.output, args.max_tests)
+
+
+def _run_generate_property_tests(target: str, output: str | None, max_tests: int) -> None:
+    """Scans repository and synthesizes Hypothesis property-based tests."""
+    from pathlib import Path
+
+    from core.services.property_test_generator import PropertyTestGenerator
+
+    p = Path(target).resolve()
+    print(f"[*] Analyzing Python AST in {p} for Property-Based Test invariants...")
+    generator = PropertyTestGenerator()
+    report = generator.scan_repository(p, max_templates=max_tests)
+
+    print(f"[+] {report.candidate_functions_count} fonksiyon için Hypothesis property testi üretildi:")
+    for t in report.templates:
+        print(f"    - {t.target_function} ({t.invariant_type}) -> {t.file_path}")
+
+    if output and report.full_test_suite_code:
+        out_path = Path(output).resolve()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(report.full_test_suite_code, encoding="utf-8")
+        print(f"[✓] Test taslağı dosyaya yazıldı: {out_path}")
+    elif not output and report.full_test_suite_code:
+        print("\n--- Üretilen Test Taslağı (Önizleme) ---")
+        preview = report.full_test_suite_code[:600]
+        print(preview + ("\n... [kalanı görmek için --output belirtin]" if len(report.full_test_suite_code) > 600 else ""))
 
 
 def _run_milestone_command(audit_id: int, label: str, clear: bool) -> None:

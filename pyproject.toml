@@ -41,3 +41,8 @@ packages = ["core", "mcp_server"]
 [tool.pytest.ini_options]
 norecursedirs = ["fixtures", "tests/fixtures", ".venv"]
 
+[dependency-groups]
+dev = [
+    "hypothesis>=6.168.3",
+]
+

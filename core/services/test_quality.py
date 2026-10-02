@@ -4,7 +4,9 @@ import ast
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
+from core.services.fake_test_detector import FakeTestDetail, FakeTestDetector
 from core.utils.file_discovery import discover_source_files
 
 logger = logging.getLogger(__name__)
@@ -30,13 +32,40 @@ class TestQualityResult:
     fake_test_ratio: float
     avg_assertion_density: float = 0.0
     fake_test_locations: list[FakeTestLocation] = field(default_factory=list)
+    fake_test_details: list[FakeTestDetail] = field(default_factory=list)
+    tautology_count: int = 0
+    uninvoked_mock_count: int = 0
     measured: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "score": self.score,
+            "total_tests": self.total_tests,
+            "fake_tests": self.fake_tests,
+            "fake_test_ratio": self.fake_test_ratio,
+            "avg_assertion_density": self.avg_assertion_density,
+            "tautology_count": self.tautology_count,
+            "uninvoked_mock_count": self.uninvoked_mock_count,
+            "fake_test_locations": [
+                {
+                    "file_path": loc.file_path,
+                    "function_name": loc.function_name,
+                    "line_number": loc.line_number,
+                }
+                for loc in self.fake_test_locations
+            ],
+            "fake_test_details": [d.to_dict() for d in self.fake_test_details[:50]],
+            "measured": self.measured,
+        }
 
 
 class TestQualityService:
     """Service to evaluate test quality, detect assertion-free tests, and analyze assertion density."""
 
     __test__ = False
+
+    def __init__(self, fake_detector: FakeTestDetector | None = None) -> None:
+        self.fake_detector = fake_detector or FakeTestDetector()
 
     def _is_trivial_assertion(self, assert_node: ast.Assert) -> bool:
         """Detects trivial assertion statements like assert True, assert 1, assert 'ok'."""
@@ -127,7 +156,7 @@ class TestQualityService:
         """Analyzes test files using AST to evaluate assertion presence and test quality."""
         import asyncio
 
-        def analyze_files() -> tuple[int, int, int, list[FakeTestLocation]]:
+        def analyze_files() -> tuple[int, int, int, list[FakeTestLocation], list[FakeTestDetail], int, int]:
             files = discover_source_files(repo_path)
             test_files = [f for f in files if f.name.startswith("test_") or f.name.endswith("_test.py")]
 
@@ -135,12 +164,21 @@ class TestQualityService:
             fake_tests = 0
             total_direct_assertions = 0
             fake_locations: list[FakeTestLocation] = []
+            fake_details: list[FakeTestDetail] = []
+            tautology_count = 0
+            uninvoked_mock_count = 0
 
             for tf in test_files:
                 try:
                     content = tf.read_text(encoding="utf-8")
+                    lines = content.splitlines()
                     tree = ast.parse(content, filename=str(tf))
                     asserting_index = self._build_asserting_function_index(tree)
+
+                    try:
+                        rel_path = str(tf.relative_to(repo_path))
+                    except ValueError:
+                        rel_path = tf.name
 
                     for node in ast.walk(tree):
                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -149,6 +187,19 @@ class TestQualityService:
                                 direct_assertions = self._count_direct_assertions(node)
                                 total_direct_assertions += direct_assertions
 
+                                # Advanced fake test analysis
+                                findings = self.fake_detector.analyze_function(
+                                    node, rel_path, lines, asserting_index
+                                )
+                                if findings:
+                                    fake_details.extend(findings)
+                                    for fd in findings:
+                                        if fd.fake_type == "TAUTOLOGY":
+                                            tautology_count += 1
+                                        elif fd.fake_type == "UNINVOKED_MOCK_ASSERTION":
+                                            uninvoked_mock_count += 1
+
+                                # Check assertion-free status
                                 if direct_assertions > 0:
                                     continue
 
@@ -158,11 +209,6 @@ class TestQualityService:
 
                                 # Assertion-free fake test detected
                                 fake_tests += 1
-                                try:
-                                    rel_path = str(tf.relative_to(repo_path))
-                                except ValueError:
-                                    rel_path = tf.name
-
                                 fake_locations.append(
                                     FakeTestLocation(
                                         file_path=rel_path,
@@ -173,9 +219,25 @@ class TestQualityService:
                 except Exception as e:
                     logger.warning(f"Failed to parse test file {tf}: {e}")
 
-            return total_tests, fake_tests, total_direct_assertions, fake_locations
+            return (
+                total_tests,
+                fake_tests,
+                total_direct_assertions,
+                fake_locations,
+                fake_details,
+                tautology_count,
+                uninvoked_mock_count,
+            )
 
-        total_tests, fake_tests, total_direct_assertions, fake_locations = await asyncio.to_thread(analyze_files)
+        (
+            total_tests,
+            fake_tests,
+            total_direct_assertions,
+            fake_locations,
+            fake_details,
+            tautology_count,
+            uninvoked_mock_count,
+        ) = await asyncio.to_thread(analyze_files)
 
         if total_tests == 0:
             return TestQualityResult(
@@ -185,6 +247,9 @@ class TestQualityService:
                 fake_test_ratio=0.0,
                 avg_assertion_density=0.0,
                 fake_test_locations=[],
+                fake_test_details=[],
+                tautology_count=0,
+                uninvoked_mock_count=0,
                 measured=True,
             )
 
@@ -200,5 +265,8 @@ class TestQualityService:
             fake_test_ratio=round(ratio, 4),
             avg_assertion_density=avg_density,
             fake_test_locations=fake_locations,
+            fake_test_details=fake_details,
+            tautology_count=tautology_count,
+            uninvoked_mock_count=uninvoked_mock_count,
             measured=True,
         )
