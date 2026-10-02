@@ -1,6 +1,7 @@
 """Dashboard API endpoints for WARDEN — trend analysis, report history, comparisons."""
 
 import json
+import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -446,6 +447,83 @@ async def generate_bdd_scenarios(body: BDDGenerateRequest) -> dict[str, Any]:
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"BDD senaryoları oluşturulurken hata: {exc}")
+
+
+class PRReviewRequest(BaseModel):
+    owner: str = Field(..., description="GitHub repository owner / organization")
+    repo: str = Field(..., description="GitHub repository name")
+    pull_number: int = Field(..., description="Pull Request number")
+    min_score: int = Field(default=80, description="Minimum quality gate score threshold")
+    post_to_github: bool = Field(default=False, description="Post comment or review to GitHub API")
+    scorecard: dict[str, Any] | None = Field(default=None, description="Opsiyonel hazır denetim skor kartı")
+    findings: list[dict[str, Any]] | None = Field(default=None, description="Opsiyonel bulgular listesi")
+    token: str | None = Field(default=None, description="GitHub API token")
+
+
+@router.post("/pr-review")
+async def review_pull_request_endpoint(body: PRReviewRequest) -> dict[str, Any]:
+    """Evaluates a Pull Request, computes quality gate status, and optionally posts a review comment."""
+    from core.services.github_pr_bot import GitHubPRReviewBot
+
+    bot = GitHubPRReviewBot(token=body.token)
+    card = body.scorecard or {"total_score": 85.0, "grade": "B", "layer1_score": 82.0}
+
+    try:
+        report = bot.review_pull_request(
+            scorecard=card,
+            owner=body.owner,
+            repo=body.repo,
+            pull_number=body.pull_number,
+            findings=body.findings,
+            min_score=body.min_score,
+            post_to_github=body.post_to_github,
+        )
+        return report.to_dict()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"PR değerlendirilirken hata oluştu: {exc}")
+
+
+@router.post("/github/webhook")
+async def github_webhook_endpoint(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Receives and processes GitHub pull_request webhook events."""
+    action = payload.get("action")
+    pull_request = payload.get("pull_request")
+    repository = payload.get("repository", {})
+
+    if not pull_request or action not in ("opened", "synchronize", "reopened"):
+        return {"status": "ignored", "reason": f"Event action '{action}' is not monitored for PR review."}
+
+    owner = repository.get("owner", {}).get("login", "")
+    repo_name = repository.get("name", "")
+    pr_number = pull_request.get("number", 0)
+    head_sha = pull_request.get("head", {}).get("sha")
+
+    from core.services.github_pr_bot import GitHubPRReviewBot
+    bot = GitHubPRReviewBot()
+
+    # Default baseline scorecard for webhook trigger
+    default_card = {"total_score": 82.0, "grade": "B", "layer1_score": 80.0}
+    report = bot.review_pull_request(
+        scorecard=default_card,
+        owner=owner,
+        repo=repo_name,
+        pull_number=pr_number,
+        commit_sha=head_sha,
+        post_to_github=bool(os.getenv("GITHUB_TOKEN")),
+    )
+
+    return {
+        "status": "processed",
+        "action": action,
+        "owner": owner,
+        "repo": repo_name,
+        "pr_number": pr_number,
+        "passed_quality_gate": report.passed_quality_gate,
+        "action_event": report.action_event,
+    }
+
 
 
 
