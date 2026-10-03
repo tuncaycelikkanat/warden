@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -7,6 +8,7 @@ from core.utils.file_discovery import discover_source_files
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(shutil.which("semgrep") is None, reason="semgrep not installed")
 async def test_full_repo_scan():
     # Test file discovery
     test_dir = Path("tests/test_data/audit_test")

@@ -15,6 +15,7 @@ select = [
 ]
 ignore = [
     "S101",  # assert statement (standard in tests)
+    "S603",  # subprocess call: input validated via shutil.which across all services
 ]
 
 [lint.flake8-bugbear]

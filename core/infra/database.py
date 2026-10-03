@@ -38,7 +38,7 @@ engine = create_engine(DATABASE_URL, **_engine_kwargs)
 def create_db_and_tables() -> None:
     """Creates database tables and applies non-destructive schema migrations."""
     # Import all models here so SQLModel knows about them before creating tables
-    from core.models.audit import AuditCoreMember, AuditReport  # noqa: F401
+    from core.models.audit import AuditCoreMember, AuditReport  # noqa: F401 – side-effect import for SQLModel metadata
     SQLModel.metadata.create_all(engine)
 
     # Safe auto-migration for SQLite development database

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+import shutil
 import subprocess
 import tomllib
 from dataclasses import dataclass
@@ -248,16 +249,17 @@ class LicenseComplianceService:
 
     def _run_pip_licenses(self, repo_path: Path) -> list[dict[str, Any]]:
         """Executes pip-licenses to extract installed JSON dependency licensing metadata."""
+        uv_bin = shutil.which("uv") or "uv"
         try:
             subprocess.run(
-                ["uv", "pip", "install", "pip-licenses"],
+                [uv_bin, "pip", "install", "pip-licenses"],
                 cwd=str(repo_path),
                 capture_output=True,
                 check=False,
                 timeout=15,
             )
             res = subprocess.run(
-                ["uv", "run", "pip-licenses", "--format=json"],
+                [uv_bin, "run", "pip-licenses", "--format=json"],
                 cwd=str(repo_path),
                 capture_output=True,
                 text=True,
