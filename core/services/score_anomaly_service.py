@@ -70,6 +70,7 @@ class AdvancedAnomalyReport:
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
+        data["is_anomaly"] = bool(self.is_anomaly)
         data["top_contributors"] = [c.to_dict() if hasattr(c, "to_dict") else c for c in self.top_contributors]
         return data
 
@@ -250,8 +251,8 @@ class ScoreAnomalyService:
         rows = []
         for i in range(60):
             row = []
-            for m, s in zip(base_means, stds):
-                shift = (((i % 9) - 4) * (s / 3.5)) + (((i % 5) - 2) * 1.2)
+            for dim_idx, (m, s) in enumerate(zip(base_means, stds)):
+                shift = ((( (i + dim_idx * 7) % 9) - 4) * (s / 3.5)) + ((( (i * 3 + dim_idx * 5) % 5) - 2) * 1.0)
                 row.append(max(0.0, min(100.0, m + shift)))
             rows.append(row)
         return np.array(rows, dtype=np.float64)
@@ -333,12 +334,17 @@ class ScoreAnomalyService:
             consensus_score = (0.40 * mah_score) + (0.35 * ae_score) + (0.25 * if_score)
 
         # Trigger logic
-        is_anomaly = (
-            consensus_score >= 65.0
-            or p_val <= 0.01
-            or mse >= (2.5 * tau)
-            or if_report.is_anomaly
-        )
+        if method_lower == "mahalanobis":
+            is_anomaly = bool(p_val <= 0.01)
+        elif method_lower == "autoencoder":
+            is_anomaly = bool(mse >= (2.0 * tau))
+        elif method_lower == "isolation_forest":
+            is_anomaly = bool(if_report.is_anomaly)
+        else:
+            is_anomaly = bool(
+                consensus_score >= 65.0
+                or (p_val <= 0.01 and mse >= (1.5 * tau))
+            )
 
         # Severity
         if consensus_score >= 85.0 or p_val <= 0.001:

@@ -65,7 +65,7 @@ class AnomalyReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "is_anomaly": self.is_anomaly,
+            "is_anomaly": bool(self.is_anomaly),
             "anomaly_score": round(self.anomaly_score, 1),
             "decision_score": round(self.decision_score, 3),
             "model_used": self.model_used,
@@ -227,7 +227,7 @@ class AnomalyDetector:
             try:
                 pred = self._model.predict([vec])[0]  # -1 for anomaly, 1 for inlier
                 decision_val = float(self._model.decision_function([vec])[0])
-                is_forest_anomaly = (pred == -1)
+                is_forest_anomaly = bool(pred == -1)
             except Exception as err:
                 logger.warning(f"IsolationForest inference error: {err}")
                 model_used = "Statistical-ZScore"
@@ -235,7 +235,7 @@ class AnomalyDetector:
             model_used = "Statistical-ZScore"
 
         # Combined verdict
-        is_anomaly = is_forest_anomaly or len(anomalous_dims) >= 2 or any(d.severity == "CRITICAL" for d in anomalous_dims)
+        is_anomaly = bool(is_forest_anomaly or len(anomalous_dims) >= 2 or any(d.severity == "CRITICAL" for d in anomalous_dims))
 
         if decision_val < 0:
             # Map negative decision value to 50..100 anomaly confidence
