@@ -215,24 +215,96 @@ class AuditReportService:
         curr_members: dict[str, float],
         prev_members: dict[str, float],
         has_prev: bool,
+        data: dict[str, Any] | None = None,
     ) -> list[str]:
         """Builds granular Layer 1 table rows for all groups and members."""
         from core.services.core_group_catalog import CORE_GROUPS
 
-        member_descriptions = {
-            "security_semgrep": "Statik kod analizi (SAST), 0 kural ihlali",
-            "secret_leak_gitleaks": "Kaynak kodda sızdırılmış gizli anahtar/token taraması",
-            "dependency_osv": "Bağımlılık zafiyet veritabanı (CVE) sorgusu, 0 açık",
-            "license_compliance": "Üçüncü taraf paketlerin lisans uyumluluk ve copyleft denetimi",
-            "test_coverage": "Birim testlerinin satır bazlı kod kapsamı (.coveragerc)",
-            "test_quality": "Assertion içeren gerçek test oranı (%0 sahte test)",
-            "lint_style_ruff": "PEP 8 kod formatı ve statik linter kuralları (0 hata)",
-            "type_safety": "Mypy statik tip güvenliği ve anotasyon denetimi",
-            "complexity_radon": "Siklomatik karmaşıklık yoğunluğu ve yüksek karmaşıklıktaki dosyalar",
-            "duplication_jscpd": "Kod tekrarı ve kopya blok analizi (jscpd)",
-            "tech_debt_churn": "Git commit churn ve dosya değişim frekansı (hotspot analizi)",
+        # ── Dynamic descriptions: pull real numbers from JSON data ───────────
+        raw = data or {}
+        l1_raw = (raw.get("scorecard", {}) or {}).get("breakdown", {}).get("layer1_raw", {}) or {}
+
+        sec = l1_raw.get("security") or raw.get("security") or []
+        sast_issues = len(sec) if isinstance(sec, list) else len(sec.get("issues", []) if isinstance(sec, dict) else [])
+
+        leaks = l1_raw.get("leaks") or raw.get("leaks") or []
+        leaks_count = len(leaks)
+
+        deps = l1_raw.get("dependencies") or raw.get("dependencies") or []
+        cve_count = len(deps) if isinstance(deps, list) else len(deps.get("vulnerabilities", []) if isinstance(deps, dict) else [])
+
+        lint = l1_raw.get("lint") or raw.get("lint") or {}
+        ruff_errors = lint.get("error_count", 0) if isinstance(lint, dict) else 0
+
+        type_meta = l1_raw.get("type_safety_meta") or raw.get("type_safety") or {}
+        mypy_errors = type_meta.get("error_count", 0) if isinstance(type_meta, dict) else 0
+
+        tq_meta = l1_raw.get("test_quality_meta") or raw.get("test_quality") or {}
+        test_total = tq_meta.get("total_tests", 0) if isinstance(tq_meta, dict) else 0
+        fake_tests = tq_meta.get("fake_tests", 0) if isinstance(tq_meta, dict) else 0
+
+        comp = l1_raw.get("complexity") or raw.get("complexity") or {}
+        avg_cc = comp.get("avg_complexity", comp.get("average_complexity", 0)) if isinstance(comp, dict) else 0
+
+        dup = l1_raw.get("duplication") or raw.get("duplication") or {}
+        dup_pct = dup.get("duplication_pct", dup.get("percentage", 0)) if isinstance(dup, dict) else 0
+
+        td = l1_raw.get("tech_debt") or raw.get("tech_debt") or {}
+        todo_count = len(td.get("todo_markers", [])) if isinstance(td, dict) and "todo_markers" in td else (td.get("todo_count", 0) if isinstance(td, dict) else 0)
+        commit_count = len(td.get("churn_entries", [])) if isinstance(td, dict) and "churn_entries" in td else (td.get("hotspot_commit_count", 0) if isinstance(td, dict) else 0)
+
+        cov = l1_raw.get("coverage") or raw.get("coverage") or {}
+        cov_pct = cov.get("line_rate", cov.get("coverage_pct")) if isinstance(cov, dict) else None
+
+        docs = l1_raw.get("docs") or raw.get("documentation") or {}
+        doc_pct = docs.get("docstring_coverage_pct", docs.get("coverage_percentage", 0)) if isinstance(docs, dict) else 0
+
+        member_descriptions: dict[str, str] = {
+            "security_semgrep": (
+                f"SAST statik analiz: {sast_issues} sorun tespit edildi"
+                if sast_issues else "SAST statik analiz: sorun tespit edilmedi ✓"
+            ),
+            "secret_leak_gitleaks": (
+                f"Gizli anahtar taraması: {leaks_count} sızıntı tespit edildi 🔑"
+                if leaks_count else "Gizli anahtar taraması: sızıntı bulunmadı ✓"
+            ),
+            "dependency_osv": (
+                f"CVE zafiyet taraması: {cve_count} açık bağımlılık" if cve_count
+                else "CVE zafiyet taraması: 0 açık bağımlılık ✓"
+            ),
+            "license_compliance": "Üçüncü taraf lisans uyumluluk ve copyleft denetimi",
+            "test_coverage": (
+                f"Satır bazlı kod kapsamı: %{cov_pct:.1f}" if cov_pct is not None
+                else "Satır bazlı kod kapsamı (execution_timeout nedeniyle ölçülemedi)"
+            ),
+            "test_quality": (
+                f"Test kalitesi: {test_total} test, {fake_tests} sahte/assertion-sız"
+                if test_total else "Test kalitesi: gerçek assertion oranı analizi"
+            ),
+            "lint_style_ruff": (
+                f"Ruff linter: {ruff_errors} uyarı/hata (F401, S603, S607 ağırlıklı)"
+                if ruff_errors else "Ruff linter: hata/uyarı yok ✓"
+            ),
+            "type_safety": (
+                f"Mypy statik tip analizi: {mypy_errors} uyumsuzluk"
+                if mypy_errors else "Mypy statik tip analizi: tip uyumsuzluğu yok ✓"
+            ),
+            "complexity_radon": (
+                f"Siklomatik karmaşıklık: ortalama {avg_cc:.2f}"
+                if avg_cc else "Siklomatik karmaşıklık analizi"
+            ),
+            "duplication_jscpd": (
+                f"Kopya blok analizi (jscpd): %{dup_pct:.2f} tekrar oranı"
+                if dup_pct else "Kopya blok analizi (jscpd)"
+            ),
+            "tech_debt_churn": (
+                f"Git churn analizi: {commit_count} hotspot commit, {todo_count} TODO/FIXME"
+                if (commit_count or todo_count) else "Git commit churn ve hotspot analizi"
+            ),
             "resilience_ast": "Çıplak except / broad exception ve kaynak yönetim kontrolü",
-            "documentation": "Interrogate docstring kapsama oranı (%89.3) ve README yapısı",
+            "documentation": (
+                f"Docstring kapsama: %{doc_pct:.1f}" if doc_pct else "Docstring kapsama oranı"
+            ),
             "cicd_presence": "GitHub Actions otomatik CI boru hattı varlığı",
             "docker_readiness": "Dockerfile, HEALTHCHECK direktifi ve docker-compose",
             "commit_hygiene": "Git commit mesajlarının kalitesi ve açıklığı",
@@ -285,8 +357,8 @@ class AuditReportService:
             verdict = cat.get("rubric_verdict") or {}
             lvl = verdict.get("level")
             prev_lvl_100 = prev_l2_dict.get(cat_key)
-            just = (verdict.get("justification") or "").replace("\n", " ")
-            just_short = (just[:90] + "...") if len(just) > 90 else just
+            just = (verdict.get("justification") or "").replace("\n", " ").strip()
+            just_short = (just[:200] + "…") if len(just) > 200 else just
 
             if lvl is not None:
                 score_100 = lvl * 10.0
@@ -343,6 +415,141 @@ class AuditReportService:
             l2_dict,
         )
 
+    @staticmethod
+    def _build_ascii_trend(history_scores: list[int]) -> str:
+        """Renders a sparkline trend from the last audit scores."""
+        if not history_scores:
+            return ""
+        blocks = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+        lo, hi = min(history_scores), max(history_scores)
+        span = (hi - lo) or 1
+        spark = "".join(blocks[min(7, int((s - lo) / span * 7))] for s in history_scores)
+        trend_arrow = "↗️ Yükseliş" if history_scores[-1] >= history_scores[0] else "↘️ Düşüş"
+        return (
+            f"\n---\n\n## 📈 Tarihsel Skor Trendi (Son {len(history_scores)} Denetim)\n\n"
+            f"```\n"
+            f"Skor Eğrisi  : {spark}\n"
+            f"Skor Aralığı : {lo} – {hi}  |  Son Skor: {history_scores[-1]}  |  Trend: {trend_arrow}\n"
+            f"```\n"
+        )
+
+    @staticmethod
+    def _build_vibe_coding_section(data: dict[str, Any]) -> str:
+        """Renders a vibe-coding & AI style drift summary block."""
+        vc = data.get("vibe_coding") or data.get("ai_slop") or {}
+        if not vc:
+            return ""
+
+        ratio = vc.get("ratio", vc.get("ai_ratio", 0))
+        risk = vc.get("risk_level", "UNKNOWN")
+        indicators = vc.get("indicator_count", vc.get("total_indicators", 0))
+        style_drift = vc.get("style_drift") or data.get("style_drift") or {}
+        drift_score = style_drift.get("overall_drift_score", None)
+        drift_risk  = style_drift.get("risk_level", None)
+
+        risk_icon = {"LOW": "🟢", "MODERATE": "🟡", "HIGH": "🟠", "CRITICAL": "🔴"}.get(risk, "⚪")
+        drift_icon = {"LOW": "🟢", "MODERATE": "🟡", "HIGH": "🟠", "CRITICAL": "🔴"}.get(drift_risk or "", "⚪")
+
+        lines = [
+            "\n---\n",
+            "## 🤖 Vibe-Coding & Yapay Zeka Stil Analizi\n",
+            f"| Metrik | Değer | Risk Seviyesi |",
+            "| :--- | :---: | :---: |",
+            f"| **AI Üretimi İz Oranı** | **%{ratio:.1f}** | {risk_icon} {risk} |",
+            f"| **Tespit Edilen Gösterge Sayısı** | {indicators} | — |",
+        ]
+        if drift_score is not None:
+            lines.append(f"| **Kod Stili Drift Skoru** | %{drift_score:.1f} | {drift_icon} {drift_risk or '—'} |")
+        lines.append("")
+        if ratio > 30:
+            lines.append("> [!CAUTION]\n> Yüksek AI iz oranı tespit edildi. Didaktik yorumlar, LLM tarafından üretilen markdown blokları ve prompt kalıntıları kod tabanını kirletiyor olabilir.\n")
+        elif ratio > 15:
+            lines.append("> [!WARNING]\n> Orta düzeyde AI iz oranı. Commit bazlı inceleme önerilir.\n")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _build_security_insights_section(data: dict[str, Any]) -> str:
+        """Renders a structured security findings block."""
+        l1_raw = (data.get("scorecard", {}) or {}).get("breakdown", {}).get("layer1_raw", {}) or {}
+        leaks = l1_raw.get("leaks") or data.get("leaks") or []
+        sec = l1_raw.get("security") or data.get("security") or []
+        issues = sec if isinstance(sec, list) else sec.get("issues", [])
+        if not leaks and not issues:
+            return ""
+
+        lines = [
+            "\n---\n",
+            "## 🔐 Güvenlik Bulguları Detayı\n",
+        ]
+
+        if issues:
+            lines.append("### 🛡️ SAST Taint & Statik Analiz Bulguları\n")
+            lines.append("| Önem | Kural | Dosya | Satır |")
+            lines.append("| :---: | :--- | :--- | :---: |")
+            for issue in issues[:10]:
+                sev = issue.get("severity", "ERROR")
+                sev_icon = {"ERROR": "🔴", "WARNING": "🟡", "INFO": "🔵"}.get(sev, "⚪")
+                rule = issue.get("rule_id", issue.get("check_id", issue.get("rule", "—")))
+                path = issue.get("path", issue.get("file", "—"))
+                line = issue.get("line", issue.get("start", {}).get("line", "—"))
+                lines.append(f"| {sev_icon} {sev} | `{rule}` | `{path}` | {line} |")
+            lines.append("")
+
+        if leaks:
+            lines.append("### 🔑 Gizli Anahtar & Token Sızıntıları\n")
+            lines.append(f"> [!CAUTION]\n> Toplam **{len(leaks)}** gizli anahtar/token sızıntısı tespit edildi.\n")
+            lines.append("| Dosya | Satır | Tür | Maskeli Değer |")
+            lines.append("| :--- | :---: | :--- | :--- |")
+            for leak in leaks[:8]:
+                path = leak.get("File", leak.get("file", "—"))
+                line = leak.get("StartLine", leak.get("line", "—"))
+                rule = leak.get("RuleID", leak.get("type", "—"))
+                secret = str(leak.get("Secret", leak.get("value", "—")))
+                masked = secret[:4] + "****" + secret[-4:] if len(secret) > 10 else "****"
+                lines.append(f"| `{path}` | {line} | `{rule}` | `{masked}` |")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _build_ck_summary_section(data: dict[str, Any]) -> str:
+        """Renders a CK metrics God Class summary block."""
+        ck = data.get("ck_metrics") or {}
+        if not ck:
+            return ""
+
+        god_classes = ck.get("god_classes") or []
+        total_classes = ck.get("total_classes", 0)
+        avg_wmc = ck.get("average_wmc", 0)
+
+        if not god_classes and not total_classes:
+            return ""
+
+        lines = [
+            "\n---\n",
+            "## 🏛️ Mimari Karmaşıklık (CK OO Metrikleri)\n",
+            f"| Metrik | Değer |",
+            "| :--- | :---: |",
+            f"| Analiz Edilen Sınıf | {total_classes} |",
+            f"| Ortalama WMC | {avg_wmc:.1f} |",
+            f"| God Class Sayısı | **{len(god_classes)}** |",
+            "",
+        ]
+
+        if god_classes:
+            lines.append("> [!WARNING]\n> Aşağıdaki sınıflar Tek Sorumluluk Prensibini (SRP) ihlal ediyor. Refactoring öncelikli.\n")
+            lines.append("| Sınıf | WMC | CBO | LCOM4 |")
+            lines.append("| :--- | :---: | :---: | :---: |")
+            for gc in god_classes[:5]:
+                name = gc.get("class_name", "—")
+                wmc = gc.get("wmc", "—")
+                cbo = gc.get("cbo", "—")
+                lcom4 = gc.get("lcom4", "—")
+                lines.append(f"| `{name}` | {wmc} | {cbo} | {lcom4} |")
+            lines.append("")
+
+        return "\n".join(lines)
+
     def build_comparison_scorecard(
         self,
         repo_path: str,
@@ -350,7 +557,7 @@ class AuditReportService:
         current_id: int | None = None,
         baseline_id: int | None = None,
     ) -> str:
-        """Constructs a detailed, hierarchical report card (Karne) comparing current audit to previous or baseline audit."""
+        """Constructs a detailed, hierarchical report card comparing current audit to previous or baseline."""
         prev = self._resolve_prev_report(repo_path, current_id, baseline_id)
         sc = data.get("scorecard", {})
 
@@ -362,6 +569,20 @@ class AuditReportService:
             prev_groups, prev_members, prev_l2_dict
         ) = self._extract_prev_metrics(prev)
 
+        # ── Load historical scores for sparkline ────────────────────────────
+        history_scores: list[int] = []
+        try:
+            with __import__("sqlmodel").Session(engine) as session:
+                from sqlmodel import select as _select
+                rows = session.exec(
+                    _select(AuditReport)
+                    .where(AuditReport.repo_path == repo_path)
+                    .order_by(AuditReport.id.asc())  # type: ignore[union-attr]
+                ).all()
+                history_scores = [r.total_score for r in rows[-10:] if r.total_score is not None]
+        except Exception:
+            pass
+
         md = self._build_summary_table(
             prev_label, curr_label, sc.get("total_score", 0), prev_total,
             sc.get("grade", "N/A"), prev_grade,
@@ -371,13 +592,22 @@ class AuditReportService:
         )
         md.extend(self._build_l1_table(
             prev_label, curr_label, sc.get("group_scores", {}), prev_groups,
-            sc.get("breakdown", {}).get("member_scores", {}), prev_members, prev is not None
+            sc.get("breakdown", {}).get("member_scores", {}), prev_members,
+            prev is not None, data=data,
         ))
         md.extend(self._build_l2_table(
             prev_label, curr_label, sc.get("breakdown", {}).get("layer2_raw", []), prev_l2_dict
         ))
 
-        return "\n".join(md)
+        result = "\n".join(md)
+
+        # ── Append rich contextual sections ─────────────────────────────────
+        result += self._build_ascii_trend(history_scores)
+        result += self._build_vibe_coding_section(data)
+        result += self._build_security_insights_section(data)
+        result += self._build_ck_summary_section(data)
+
+        return result
 
     def _call_gemini_report(self, client: Any, prompt: str) -> str:
         """Invokes Gemini models using a prioritized fallback pool."""
@@ -399,9 +629,12 @@ class AuditReportService:
         raise last_err if last_err else Exception("No response received from Gemini")
 
     def _inject_scorecard_matrix(self, content: str, scorecard_matrix: str) -> str:
-        """Ensures the exact scorecard comparison matrix is included in the executive report."""
+        """Reliably injects the official deterministic scorecard matrix into Section 6."""
         if "### 🎓 WARDEN Hiyerarşik Denetim Karnesi" in content:
             return content
+
+        if "<!-- SCORECARD_MATRIX_PLACEHOLDER -->" in content:
+            return content.replace("<!-- SCORECARD_MATRIX_PLACEHOLDER -->", scorecard_matrix)
 
         if "## 6." in content:
             parts = content.split("## 6.")
@@ -413,9 +646,19 @@ class AuditReportService:
         return content + f"\n\n## 6. Genel Puan Tablosu ve Denetim Karnesi\n\n{scorecard_matrix}\n"
 
     def _inject_header_metadata(self, content: str, date_badge: str) -> str:
-        """Injects formatted date badge directly below the top-level title."""
+        """Injects formatted date badge directly below the top-level title (dedup-safe)."""
         if date_badge.strip() in content:
             return content
+
+        import re
+
+        # Remove ALL pre-existing date badge variants (LLM sometimes writes its own)
+        content = re.sub(r"\n?> \*?\*?Denetim (Tarihi|Zaman Bilgisi)\*?\*?:.*\n?", "", content)
+        content = re.sub(r"\n?> \*?\*?Zaman Damgası\*?\*?:.*\n?", "", content)
+        content = re.sub(r"\n?> 📅 \*\*Denetim Tarihi:\*\*.*\n?", "", content)
+        content = re.sub(r"\n?> \*?\*?Baş Denetçi\*?\*?:.*\n?", "", content)
+        content = re.sub(r"\n?> \*?\*?Hedef Skor\*?\*?:.*\n?", "", content)
+
         lines = content.splitlines(keepends=True)
         for i, line in enumerate(lines):
             if line.startswith("# "):
@@ -457,26 +700,43 @@ class AuditReportService:
             prompt = f"""
 Sen WARDEN Baş Denetçisisin (Chief Security & Architecture Auditor).
 Sana bir projenin tam teşekküllü (Layer 1 mekanik + Layer 2 LLM) denetim sonuçlarını JSON olarak veriyorum.
-Görevin, bu JSON verilerini analiz edip tıpkı aşağıdaki örnek yapıya ve üsluba sahip, ÇOK KAPSAMLI, GÖRSEL, İKONLU ve YÖNETİCİ ÖZETİ (Executive Summary) niteliğinde bir Markdown raporu yazmaktır.
-Raporun adı "WARDEN — Kapsamlı Proje İnceleme ve Denetim Raporu" olsun.
-Raporun girişine şu denetim zaman bilgisini ekle: {formatted_date} (Zaman Damgası: {timestamp_numeric})
+Görevin, bu JSON verilerini analiz edip üst düzey, analitik, GÖRSEL, İKONLU ve YÖNETİCİ ÖZETİ (Executive Summary) niteliğinde bir Markdown raporu yazmaktır.
+Rapor dili tamamen TÜRKÇE olmalıdır. İngilizce terimler yalnızca parantez içinde teknik referans olarak kalabilir.
+
+Raporun başlığı: "# WARDEN — Kapsamlı Proje İnceleme ve Denetim Raporu"
+Başlığın hemen altına tarih veya üst bilgi bloğu YAZMA (sistem otomatik ekleyecektir).
 
 İçinde şu ana başlıklar olmalıdır:
-1. Yönetici Özeti
-2. Mimari ve Güvenlik Durumu
-3. Zafiyetler ve Teknik Borçlar (JSON'daki security ve leaks kısımlarını referans al, uydurma)
-4. Kod Kalitesi ve Test Kapsamı (JSON'daki coverage ve complexity değerlerini referans al)
-5. Kategori Bazlı LLM Değerlendirmesi (Layer 2 verilerini detaylandır)
-6. Genel Puan Tablosu ve Denetim Karnesi: Bu bölümde AŞAĞIDA VERİLEN RESMİ HİYERARŞİK DENETİM KARNESİ VE KARŞILAŞTIRMA TABLOSUNU AYNEN, HİÇBİR SATIRINI ATLAMA ve TABLO FORMATINI BOZMADAN EKSİKSİZ KOY:
+## 1. Yönetici Özeti
+Projenin genel notu, Layer 1 ve Layer 2 dengesi, en güçlü ve en kırılgan yönleri özetle.
 
-{scorecard_matrix}
+## 2. Mimari ve Güvenlik Durumu
+Proje iskeleti, framework kullanımı, asenkronluk, thread-safety ve LLM koruma mekanizmaları.
 
-7. Gelecek Yol Haritası ve Somut Aksiyon Önerileri
+## 3. Zafiyetler ve Teknik Borçlar
+JSON'daki `security`, `leaks` ve `tech_debt` verilerine dayan. Asla uydurma veri yazma. Gerçek dosya ve satır referansları ver.
+
+## 4. Kod Kalitesi ve Test Kapsamı
+Test kalitesi, sahte test oranı, ortalama karmaşıklık, tip hataları (mypy) ve linter (ruff) bulguları.
+
+## 5. Kategori Bazlı LLM Değerlendirmesi (Layer 2)
+Katman 2 mimari rubrik değerlendirmesini detaylandır. Her kategori için mimari gerekçeyi Türkçe, yapıcı ve derinlemesine açıkla.
+
+## 6. Genel Puan Tablosu ve Denetim Karnesi
+Bu başlığın hemen altına yalnızca şu satırı koy, başka tablo veya metin ekleme:
+<!-- SCORECARD_MATRIX_PLACEHOLDER -->
+
+## 7. Gelecek Yol Haritası ve Somut Aksiyon Önerileri
+Bulguları önem derecesine göre önceliklendir:
+- 🔴 **[CRITICAL]** Hemen çözülmesi gerekenler (SQL injection, credential leak, vb.) -> [Beklenen Etki: ...]
+- 🟠 **[HIGH]** Kısa vadeli mimari refactoring (God function, döngüsel bağımlılık) -> [Beklenen Etki: ...]
+- 🟡 **[MEDIUM]** Kod hijyeni ve tip güvenliği (Mypy, Ruff, Docstring) -> [Beklenen Etki: ...]
+- 🟢 **[LOW]** Dokümantasyon ve test kapsamı artırımları -> [Beklenen Etki: ...]
 
 JSON Verisi:
 {json.dumps(data, indent=2)}
 
-Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıklarla (#) başla.
+Sadece Markdown metnini döndür. Asla markdown tagleri (```markdown) kullanma, doğrudan başlıkla (#) başla.
 """
             raw_text = self._call_gemini_report(client, prompt)
             content = raw_text.replace("```markdown", "").replace("```", "").strip()
