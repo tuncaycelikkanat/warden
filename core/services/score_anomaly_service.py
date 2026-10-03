@@ -347,14 +347,14 @@ class ScoreAnomalyService:
             )
 
         # Severity
-        if consensus_score >= 85.0 or p_val <= 0.001:
+        if not is_anomaly:
+            severity = "NORMAL"
+        elif consensus_score >= 85.0 or p_val <= 0.001:
             severity = "CRITICAL"
         elif consensus_score >= 70.0 or p_val <= 0.01:
             severity = "HIGH"
-        elif consensus_score >= 60.0 or is_anomaly:
-            severity = "MEDIUM"
         else:
-            severity = "NORMAL"
+            severity = "MEDIUM"
 
         # 5. Root Cause Attribution (Top Contributors)
         # Combine Mahalanobis positive projection and Autoencoder squared errors
