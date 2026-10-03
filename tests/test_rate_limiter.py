@@ -37,7 +37,7 @@ class TestSlidingWindowRateLimiter:
 
 class TestRateLimitMiddlewareIntegration:
     @pytest.fixture
-    def test_app(self) -> FastAPI:
+    def sample_app(self) -> FastAPI:
         app = FastAPI()
         app.add_middleware(RateLimitMiddleware, max_requests=2, window_seconds=10)
 
@@ -51,15 +51,15 @@ class TestRateLimitMiddlewareIntegration:
 
         return app
 
-    def test_exempt_route_never_blocked(self, test_app: FastAPI) -> None:
-        client = TestClient(test_app)
+    def test_exempt_route_never_blocked(self, sample_app: FastAPI) -> None:
+        client = TestClient(sample_app)
         # /api/v1/health should not be blocked even after 10 requests
         for _ in range(10):
             res = client.get("/api/v1/health")
             assert res.status_code == 200
 
-    def test_regular_route_blocked_after_limit(self, test_app: FastAPI) -> None:
-        client = TestClient(test_app)
+    def test_regular_route_blocked_after_limit(self, sample_app: FastAPI) -> None:
+        client = TestClient(sample_app)
         assert client.get("/api/v1/resource").status_code == 200
         assert client.get("/api/v1/resource").status_code == 200
 

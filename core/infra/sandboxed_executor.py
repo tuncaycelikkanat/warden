@@ -185,7 +185,7 @@ class SandboxedTestExecutor:
                 # 2GB virtual memory ceiling
                 mem_bytes = 2 * 1024 * 1024 * 1024
                 resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
-            except Exception:
+            except (ImportError, OSError, ValueError):
                 pass
 
         try:

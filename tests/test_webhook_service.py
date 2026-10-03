@@ -187,7 +187,7 @@ class TestWebhookService:
                 return self
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 pass
-            async def post(self, url: str, json: dict):
+            async def post(self, url: str, json: dict, **kwargs):
                 captured_urls.append(url)
                 captured_payloads.append(json)
                 return DummyResponse()

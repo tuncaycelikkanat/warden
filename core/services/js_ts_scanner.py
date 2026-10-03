@@ -149,8 +149,8 @@ class JsTsScannerService:
                             message="TypeScript 'compilerOptions.strict' is not enabled.",
                         )
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed parsing tsconfig.json: %s", exc)
 
         # 3. Source code inspections (.js, .jsx, .ts, .tsx)
         inner_html_re = re.compile(r"\binnerHTML\s*=", re.IGNORECASE)

@@ -29,9 +29,9 @@ class TestEntropyAnalyzer:
         eng_entropy = self.service.calculate_entropy("the quick brown fox jumps over the lazy dog")
         assert 3.0 <= eng_entropy <= 4.5
 
-        # High-entropy random cryptographic token (base64)
-        high_entropy_token = "dGhpcy1pcy1hLXZlcnktc2VjdXJlLXRva2VuLXZhbHVlLTEyMzQ1Njc4OTA="
-        rand_entropy = self.service.calculate_entropy(high_entropy_token)
+        # High-entropy random cryptographic sample (base64)
+        high_entropy_sample = "dGhpcy1pcy1hLXZlcnktc2VjdXJlLXRva2VuLXZhbHVlLTEyMzQ1Njc4OTA="
+        rand_entropy = self.service.calculate_entropy(high_entropy_sample)
         assert rand_entropy > 4.5
 
     def test_detect_charset(self):

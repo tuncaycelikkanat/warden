@@ -376,8 +376,8 @@ class CKMetricsAnalyzer:
                             paths = list(nx.all_simple_paths(inheritance_graph, anc, name))
                             if paths:
                                 max_path = max(max_path, max(len(path) - 1 for path in paths))
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug("Failed computing path from %s to %s: %s", anc, name, exc)
                 dit = max(1, max_path + 1)
 
             # NOC (Number of Children)

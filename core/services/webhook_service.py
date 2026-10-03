@@ -95,7 +95,7 @@ class WebhookService:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(webhook_url, json=payload)
+                resp = await client.post(webhook_url, json=payload, timeout=10.0)
                 if resp.status_code in (200, 201, 202, 204):
                     logger.info(f"Webhook delivered successfully to {webhook_url[:30]}...")
                     return True

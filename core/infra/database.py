@@ -58,5 +58,5 @@ def create_db_and_tables() -> None:
                 try:
                     conn.execute(text(sql))
                     conn.commit()
-                except Exception:
-                    pass  # Column already exists — safe to ignore
+                except Exception as exc:
+                    logger.debug("Migration column might already exist (%s): %s", sql, exc)

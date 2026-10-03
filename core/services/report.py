@@ -580,8 +580,8 @@ class AuditReportService:
                     .order_by(AuditReport.id.asc())  # type: ignore[union-attr]
                 ).all()
                 history_scores = [r.total_score for r in rows[-10:] if r.total_score is not None]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed fetching history scores for markdown report: %s", exc)
 
         md = self._build_summary_table(
             prev_label, curr_label, sc.get("total_score", 0), prev_total,

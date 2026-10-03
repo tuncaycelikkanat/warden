@@ -301,8 +301,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 try:
                     scanner = SecurityScannerService()
                     security_findings = scanner.scan_file(str(target_path))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed security scan on %s: %s", target_path, exc)
 
             # AST syntax and complexity analysis
             syntax_valid = True

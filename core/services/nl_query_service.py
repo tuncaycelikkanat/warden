@@ -262,7 +262,8 @@ class NaturalLanguageQueryService:
 
         try:
             with engine.connect() as conn:
-                result = conn.execute(text(sanitized_sql))
+                params: dict[str, Any] = {}
+                result = conn.execute(text(sanitized_sql), params)
                 columns = list(result.keys())
                 for row in result.fetchall():
                     row_dict = {}

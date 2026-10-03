@@ -163,8 +163,8 @@ class TechDebtService:
                     orig_date = self._parse_iso_date(creation_run.stdout.strip())
                     if orig_date:
                         first_date = orig_date
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed getting git creation date for %s: %s", file_name, exc)
 
             age_days = 0
             if first_date:

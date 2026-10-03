@@ -66,6 +66,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                         f"{self.base_url}/chat/completions",
                         headers=headers,
                         json=payload,
+                        timeout=float(timeout_sec),
                     )
                     if response.status_code == 200:
                         data = response.json()

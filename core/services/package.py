@@ -82,7 +82,7 @@ class PackageCheckerService:
 
         async with httpx.AsyncClient(timeout=10.0, headers=self._http_headers) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     self._metadata_cache[pkg_key] = data
@@ -109,7 +109,7 @@ class PackageCheckerService:
         url = f"https://pypistats.org/api/packages/{package_name}/recent"
         async with httpx.AsyncClient(timeout=5.0, headers=self._http_headers) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, timeout=5.0)
                 if response.status_code == 200:
                     data = response.json()
                     downloads = data.get("data", {}).get("last_month", 0)

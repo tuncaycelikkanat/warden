@@ -296,8 +296,8 @@ class LicenseComplianceService:
                         match = re.match(r"^([a-zA-Z0-9_\-\.]+)", str(d))
                         if match:
                             packages.append(match.group(1).lower())
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed parsing pyproject dependencies: %s", exc)
 
         results: list[dict[str, Any]] = []
         for pkg in packages:
@@ -394,8 +394,8 @@ class LicenseComplianceService:
                 pname = pdata.get("project", {}).get("name")
                 if pname:
                     root_pkg_name = str(pname).lower().replace("-", "_")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed reading project name from pyproject.toml: %s", exc)
 
         copyleft_count = 0
         unknown_count = 0

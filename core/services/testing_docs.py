@@ -288,8 +288,8 @@ class DocumentationAnalyzerService:
             )
             if check_mod.returncode == 0:
                 return [sys.executable, "-m", "interrogate"]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed checking interrogate module: %s", exc)
 
         # Try uv run
         if shutil.which("uv"):

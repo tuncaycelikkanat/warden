@@ -22,3 +22,23 @@ b069d74656acba3d897cedc5af7b5e282c0565a3:tests/test_data/audit_test/vuln2.py:gen
 7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:118
 7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:137
 7564f445f8153849c1ddb6894bbf1a6071c7181a:tests/test_secret_leak.py:stripe-access-token:138
+
+# Unit test fixtures in tests/test_mcp_server.py (MCP entropy tool test fixture)
+a5f8edaf51ad20dd700081ae0ed017dd7e55f18f:tests/test_mcp_server.py:generic-api-key:115
+
+# Unit test fixtures in tests/test_entropy_analyzer.py (Shannon entropy mock tokens)
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:33
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:48
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:63
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:73
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:98
+52944b6bbe63b00775c91d144685fa598a91972a:tests/test_entropy_analyzer.py:generic-api-key:103
+
+# Documentation placeholder password in docs/api-and-webhooks.md
+a26e7216769b263fdf94ff522415a594cc648823:docs/api-and-webhooks.md:hashicorp-tf-password:66
+
+# Additional mock tokens in tests/test_secret_leak.py
+4275c05a5089f2ca3677256c78e25bb43abd38cc:tests/test_secret_leak.py:generic-api-key:112
+4275c05a5089f2ca3677256c78e25bb43abd38cc:tests/test_secret_leak.py:generic-api-key:113
+4275c05a5089f2ca3677256c78e25bb43abd38cc:tests/test_secret_leak.py:stripe-access-token:127
+4275c05a5089f2ca3677256c78e25bb43abd38cc:tests/test_secret_leak.py:stripe-access-token:128

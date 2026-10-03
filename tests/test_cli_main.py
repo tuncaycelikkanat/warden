@@ -67,10 +67,9 @@ def test_run_audit_command_success(tmp_path):
         },
     }
     with patch("core.utils.path_validator.validate_audit_path", return_value=tmp_path), \
-         patch("core.services.orchestrator.AuditOrchestrator.run_full_audit", return_value=mock_res), \
-         patch("core.services.report.AuditReportService.save_to_db", return_value=123), \
-         patch("core.services.report.AuditReportService.generate_markdown", return_value=str(tmp_path / "rep.md")):
-        # Should complete without error
+         patch("core.services.orchestrator.AuditOrchestrator.run_full_audit", return_value=mock_res) as mock_audit, \
+         patch("core.services.report.AuditReportService.save_to_db", return_value=123) as mock_save, \
+         patch("core.services.report.AuditReportService.generate_markdown", return_value=str(tmp_path / "rep.md")) as mock_gen:
         _run_audit_command(
             str(tmp_path),
             min_score=80,
@@ -78,6 +77,10 @@ def test_run_audit_command_success(tmp_path):
             incremental=True,
             since_commit="HEAD~1",
         )
+        assert mock_audit.called
+        assert mock_save.called
+        assert mock_gen.called
+        mock_save.assert_called_once_with(str(tmp_path), mock_res)
 
 
 def test_run_audit_command_min_score_failure(tmp_path):
