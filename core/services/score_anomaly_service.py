@@ -343,7 +343,8 @@ class ScoreAnomalyService:
         else:
             is_anomaly = bool(
                 consensus_score >= 65.0
-                or (p_val <= 0.01 and mse >= (1.5 * tau))
+                or p_val <= 0.01
+                or mse >= (2.0 * tau)
             )
 
         # Severity

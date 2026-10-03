@@ -112,8 +112,8 @@ class TestAutoencoderMathematics:
 class TestScoreAnomalyService:
     """Verifies end-to-end multi-model score anomaly evaluation and root-cause analysis."""
 
-    def test_normal_scorecard_true_negative(self):
-        service = ScoreAnomalyService()
+    def test_normal_scorecard_true_negative(self, tmp_path):
+        service = ScoreAnomalyService(db_path=tmp_path / "empty.db")
         normal_card = {
             "total_score": 82.0,
             "layer1_score": 80.0,
@@ -132,8 +132,8 @@ class TestScoreAnomalyService:
         assert report.consensus_score < 50.0
         assert "Normal Skor Dağılımı" in report.verdict_summary
 
-    def test_corrupted_scorecard_true_positive_with_root_cause(self):
-        service = ScoreAnomalyService()
+    def test_corrupted_scorecard_true_positive_with_root_cause(self, tmp_path):
+        service = ScoreAnomalyService(db_path=tmp_path / "empty.db")
         corrupted_card = {
             "total_score": 45.0,
             "layer1_score": 40.0,
@@ -156,8 +156,8 @@ class TestScoreAnomalyService:
         top_dims = [c.dimension for c in report.top_contributors]
         assert "group_security" in top_dims or "layer1_score" in top_dims
 
-    def test_method_selection(self):
-        service = ScoreAnomalyService()
+    def test_method_selection(self, tmp_path):
+        service = ScoreAnomalyService(db_path=tmp_path / "empty.db")
         card = {
             "total_score": 50.0,
             "layer1_score": 45.0,
@@ -200,8 +200,8 @@ class TestScoreAnomalyService:
         assert vec[3] == 92.0  # security
         assert vec[4] == 87.0  # code_health
 
-    def test_missing_audit_id_raises_value_error(self):
-        service = ScoreAnomalyService()
+    def test_missing_audit_id_raises_value_error(self, tmp_path):
+        service = ScoreAnomalyService(db_path=tmp_path / "empty.db")
         with pytest.raises(ValueError, match="bulunamadı"):
             service.evaluate_audit_id(99999999)
 
