@@ -5,7 +5,6 @@ import logging
 import os
 import stat
 from pathlib import Path
-from typing import Any
 
 from core.services.entropy_analyzer import EntropyAnalyzerService
 from core.services.git_diff_analyzer import GitDiffAnalyzer

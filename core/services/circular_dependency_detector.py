@@ -67,8 +67,7 @@ class CircularDependencyDetector:
         """Converts a repository file path to a dotted Python module name."""
         rel = file_path.relative_to(repo_path)
         parts = list(rel.parts)
-        if parts[-1].endswith(".py"):
-            parts[-1] = parts[-1][:-3]
+        parts[-1] = parts[-1].removesuffix(".py")
         if parts[-1] == "__init__":
             parts = parts[:-1]
         return ".".join(parts)
@@ -158,7 +157,7 @@ class CircularDependencyDetector:
 
     def analyze(self, repo_path: Path) -> CircularDependencyReport:
         """Finds circular import cycles, strongly connected components, and architectural suggestions."""
-        G, module_map = self.build_import_graph(repo_path)
+        G, _module_map = self.build_import_graph(repo_path)
         total_modules = G.number_of_nodes()
         total_edges = G.number_of_edges()
 

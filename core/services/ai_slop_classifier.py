@@ -13,7 +13,6 @@ Uses TF-IDF + linear feature weighting with graceful pure-Python fallback.
 from __future__ import annotations
 
 import logging
-import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,30 +21,30 @@ logger = logging.getLogger(__name__)
 
 # Heuristic patterns associated with AI-generated commentary
 DIDACTIC_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
-    (re.compile(r"^\s*#\s*(import(ing)?\s+(all\s+)?(necessary|required|the)\s+(modules|packages|libraries|dependencies))", re.I), "didactic_import", 3.5),
-    (re.compile(r"^\s*#\s*(helper\s+function\s+to|function\s+to\s+(handle|calculate|process|format|execute))", re.I), "obvious_function_label", 2.5),
-    (re.compile(r"^\s*#\s*(step\s+\d+[:\.]?\s*\w+)", re.I), "procedural_step", 2.5),
-    (re.compile(r"^\s*#\s*(create\s+(an?\s+)?instance\s+of|initialize\s+(the\s+)?(class|variables?|object))", re.I), "obvious_instantiation", 2.5),
-    (re.compile(r"^\s*#\s*(loop\s+(through|over)\s+(the\s+)?(items|elements|list|data))", re.I), "obvious_loop", 2.5),
-    (re.compile(r"^\s*#\s*(call\s+(the\s+)?function|return\s+(the\s+)?(result|response|value))", re.I), "obvious_call_or_return", 2.0),
-    (re.compile(r"^\s*#\s*(constructor\s+method|getter\s+for|setter\s+for)", re.I), "obvious_oop_comment", 2.0),
+    (re.compile(r"^\s*#\s*(import(ing)?\s+(all\s+)?(necessary|required|the)\s+(modules|packages|libraries|dependencies))", re.IGNORECASE), "didactic_import", 3.5),
+    (re.compile(r"^\s*#\s*(helper\s+function\s+to|function\s+to\s+(handle|calculate|process|format|execute))", re.IGNORECASE), "obvious_function_label", 2.5),
+    (re.compile(r"^\s*#\s*(step\s+\d+[:\.]?\s*\w+)", re.IGNORECASE), "procedural_step", 2.5),
+    (re.compile(r"^\s*#\s*(create\s+(an?\s+)?instance\s+of|initialize\s+(the\s+)?(class|variables?|object))", re.IGNORECASE), "obvious_instantiation", 2.5),
+    (re.compile(r"^\s*#\s*(loop\s+(through|over)\s+(the\s+)?(items|elements|list|data))", re.IGNORECASE), "obvious_loop", 2.5),
+    (re.compile(r"^\s*#\s*(call\s+(the\s+)?function|return\s+(the\s+)?(result|response|value))", re.IGNORECASE), "obvious_call_or_return", 2.0),
+    (re.compile(r"^\s*#\s*(constructor\s+method|getter\s+for|setter\s+for)", re.IGNORECASE), "obvious_oop_comment", 2.0),
 ]
 
 DISCLAIMER_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
-    (re.compile(r"#\s*(in\s+production,?\s+(you\s+should|replace|use|implement|make\s+sure))", re.I), "production_disclaimer", 4.0),
-    (re.compile(r"#\s*(replace\s+(this\s+)?with\s+your\s+(actual\s+)?(api_?key|token|secret|url|credentials))", re.I), "placeholder_disclaimer", 4.5),
-    (re.compile(r"#\s*(for\s+(demonstration|testing|example)\s+purposes?\s+only)", re.I), "demo_disclaimer", 3.5),
-    (re.compile(r"#\s*(note:\s*(this\s+is\s+a\s+(mock|simple|basic|minimal)|make\s+sure\s+to))", re.I), "mock_disclaimer", 3.0),
-    (re.compile(r"#\s*(ensure\s+(proper\s+)?error\s+handling\s+is\s+(added|implemented))", re.I), "error_disclaimer", 3.0),
+    (re.compile(r"#\s*(in\s+production,?\s+(you\s+should|replace|use|implement|make\s+sure))", re.IGNORECASE), "production_disclaimer", 4.0),
+    (re.compile(r"#\s*(replace\s+(this\s+)?with\s+your\s+(actual\s+)?(api_?key|token|secret|url|credentials))", re.IGNORECASE), "placeholder_disclaimer", 4.5),
+    (re.compile(r"#\s*(for\s+(demonstration|testing|example)\s+purposes?\s+only)", re.IGNORECASE), "demo_disclaimer", 3.5),
+    (re.compile(r"#\s*(note:\s*(this\s+is\s+a\s+(mock|simple|basic|minimal)|make\s+sure\s+to))", re.IGNORECASE), "mock_disclaimer", 3.0),
+    (re.compile(r"#\s*(ensure\s+(proper\s+)?error\s+handling\s+is\s+(added|implemented))", re.IGNORECASE), "error_disclaimer", 3.0),
 ]
 
 CONVERSATIONAL_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
-    (re.compile(r"#\s*(here\s+is\s+(the\s+)?(updated|complete|refactored|full)\s+(code|implementation|solution))", re.I), "chat_here_is_code", 5.0),
-    (re.compile(r"#\s*(feel\s+free\s+to\s+(modify|adjust|customize|extend|tweak))", re.I), "chat_feel_free", 4.5),
-    (re.compile(r"#\s*(i\s+hope\s+this\s+(helps|is\s+helpful))", re.I), "chat_i_hope_this_helps", 5.0),
-    (re.compile(r"#\s*(let\s+me\s+know\s+if\s+you\s+(have|need))", re.I), "chat_let_me_know", 5.0),
-    (re.compile(r"#\s*(as\s+requested,?\s+here)", re.I), "chat_as_requested", 5.0),
-    (re.compile(r"```(?:python|bash|json|javascript|ts)?", re.I), "markdown_code_fence", 5.0),
+    (re.compile(r"#\s*(here\s+is\s+(the\s+)?(updated|complete|refactored|full)\s+(code|implementation|solution))", re.IGNORECASE), "chat_here_is_code", 5.0),
+    (re.compile(r"#\s*(feel\s+free\s+to\s+(modify|adjust|customize|extend|tweak))", re.IGNORECASE), "chat_feel_free", 4.5),
+    (re.compile(r"#\s*(i\s+hope\s+this\s+(helps|is\s+helpful))", re.IGNORECASE), "chat_i_hope_this_helps", 5.0),
+    (re.compile(r"#\s*(let\s+me\s+know\s+if\s+you\s+(have|need))", re.IGNORECASE), "chat_let_me_know", 5.0),
+    (re.compile(r"#\s*(as\s+requested,?\s+here)", re.IGNORECASE), "chat_as_requested", 5.0),
+    (re.compile(r"```(?:python|bash|json|javascript|ts)?", re.IGNORECASE), "markdown_code_fence", 5.0),
 ]
 
 # High-frequency AI slop n-grams for TF-IDF / dictionary weighting
@@ -177,14 +176,14 @@ class AISlopClassifier:
         # Extract words from comment, splitting camelCase and snake_case
         expanded_comment = re.sub(r"([a-z])([A-Z])", r"\1 \2", comment)
         clean_comment = re.sub(r"[^\w\s]|_", " ", expanded_comment.lower()).strip()
-        comment_words = set(w for w in clean_comment.split() if len(w) >= 2)
+        comment_words = {w for w in clean_comment.split() if len(w) >= 2}
         if not comment_words:
             return 0.0
 
         # Extract words from surrounding code line, splitting camelCase and snake_case
         expanded_code = re.sub(r"([a-z])([A-Z])", r"\1 \2", surrounding_code)
         clean_code = re.sub(r"[^\w\s]|_", " ", expanded_code.lower()).strip()
-        code_words = set(w for w in clean_code.split() if len(w) >= 2)
+        code_words = {w for w in clean_code.split() if len(w) >= 2}
         if not code_words:
             return 0.0
 

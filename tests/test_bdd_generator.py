@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
-from core.main import app, _run_bdd_command
+from core.main import _run_bdd_command, app
 from core.services.bdd_scenario_generator import (
     ASTScenarioExtractor,
     BDDFeature,

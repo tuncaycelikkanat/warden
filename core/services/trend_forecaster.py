@@ -352,7 +352,7 @@ class TrendForecasterService:
                     | (AuditReport.repo_path == short_path)
                     | (AuditReport.repo_path == ".")
                 )
-                .order_by(AuditReport.created_at.asc(), AuditReport.id.asc())
+                .order_by(AuditReport.created_at.asc(), AuditReport.id.asc())  # type: ignore[attr-defined,union-attr]
             )
             reports = session.exec(stmt).all()
 

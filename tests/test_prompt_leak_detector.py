@@ -2,12 +2,12 @@
 
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from core.services.prompt_leak_detector import (
     PromptLeakDetector,
     PromptLeakFinding,
-    PromptLeakResult,
 )
 
 

@@ -11,7 +11,6 @@ from core.llm.anthropic_provider import (
     AnthropicProvider,
 )
 
-
 # ── Configuration tests ────────────────────────────────────────────────────────
 
 def test_anthropic_provider_not_configured_when_empty_key():

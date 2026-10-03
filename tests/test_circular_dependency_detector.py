@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.services.circular_dependency_detector import (
-    CircularCycle,
     CircularDependencyDetector,
     CircularDependencyReport,
 )

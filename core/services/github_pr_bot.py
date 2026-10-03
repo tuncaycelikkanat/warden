@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -214,7 +213,7 @@ class GitHubPRReviewBot:
 
         all_findings = findings or []
         critical_count = sum(1 for f in all_findings if str(f.get("severity", "")).upper() == "CRITICAL")
-        high_count = sum(1 for f in all_findings if str(f.get("severity", "")).upper() == "HIGH")
+        sum(1 for f in all_findings if str(f.get("severity", "")).upper() == "HIGH")
 
         passed_gate = (total_score >= min_score) and (critical_count == 0)
 
@@ -306,8 +305,7 @@ class GitHubPRReviewBot:
             except (ValueError, TypeError):
                 line_no = 1
 
-            if line_no < 1:
-                line_no = 1
+            line_no = max(line_no, 1)
 
             sev = str(f.get("severity", "MEDIUM")).upper()
             msg = str(f.get("message", f.get("description", "Quality or security issue detected.")))

@@ -105,7 +105,7 @@ class DependencyGraphAnalyzer:
         if pyproject_path.exists():
             try:
                 data = tomllib.loads(pyproject_path.read_text(encoding="utf-8", errors="ignore"))
-                project_name = data.get("project", {}).get("name", repo_path.name).lower().replace("_", "-")
+                data.get("project", {}).get("name", repo_path.name).lower().replace("_", "-")
                 for d in data.get("project", {}).get("dependencies", []):
                     # Extract package name before any version specifier
                     match = d.split(";")[0].split("<")[0].split(">")[0].split("=")[0].split("[")[0].strip().lower().replace("_", "-")

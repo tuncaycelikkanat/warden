@@ -209,7 +209,8 @@ class SarifReportService:
         for item in sec_findings:
             path = item.get("path") or item.get("file", "unknown")
             start = item.get("start", {})
-            line = start.get("line") if isinstance(start, dict) else item.get("line", 1)
+            raw_line = start.get("line") if isinstance(start, dict) else item.get("line", 1)
+            line = int(raw_line) if raw_line is not None else 1
             check_id = item.get("check_id") or item.get("rule_id", "security-issue")
             extra = item.get("extra", {})
             msg = extra.get("message") if isinstance(extra, dict) else item.get("message", "Security vulnerability found")

@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from core.main import app, _run_anomaly_command
+from core.main import _run_anomaly_command, app
 from core.services.score_anomaly_service import (
     AdvancedAnomalyReport,
-    AnomalyContribution,
     AutoencoderDetector,
     MahalanobisDetector,
     ScoreAnomalyService,

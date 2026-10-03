@@ -16,7 +16,6 @@ that the caller can use to decide how much weight to give the LLM verdict.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -72,7 +71,7 @@ class AnalystFindings:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def parse(cls, data: dict[str, Any]) -> "AnalystFindings":
+    def parse(cls, data: dict[str, Any]) -> AnalystFindings:
         return cls(
             issues=data.get("issues", []),
             risk_level=str(data.get("risk_level", "unknown")).lower(),
@@ -90,7 +89,7 @@ class DefenderReport:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def parse(cls, data: dict[str, Any]) -> "DefenderReport":
+    def parse(cls, data: dict[str, Any]) -> DefenderReport:
         return cls(
             false_positives=data.get("false_positives", []),
             missing_evidence=data.get("missing_evidence", []),
@@ -113,7 +112,7 @@ class PanelistVerdict:
     latency_sec: float = 0.0
 
     @classmethod
-    def skipped(cls, reason: str) -> "PanelistVerdict":
+    def skipped(cls, reason: str) -> PanelistVerdict:
         return cls(
             level=None,
             confidence_score=0.0,
@@ -123,7 +122,7 @@ class PanelistVerdict:
         )
 
     @classmethod
-    def error(cls, err: Exception) -> "PanelistVerdict":
+    def error(cls, err: Exception) -> PanelistVerdict:
         return cls(
             level=None,
             confidence_score=0.0,
@@ -390,11 +389,12 @@ class PanelistEvaluator:
         data = _extract_json(raw)
 
         raw_level = data.get("level")
-        try:
-            level = int(raw_level)
-            level = max(0, min(10, level))
-        except (TypeError, ValueError):
-            level = None
+        level: int | None = None
+        if raw_level is not None:
+            try:
+                level = max(0, min(10, int(raw_level)))
+            except (TypeError, ValueError):
+                level = None
 
         raw_conf = data.get("confidence_score", 0.5)
         try:

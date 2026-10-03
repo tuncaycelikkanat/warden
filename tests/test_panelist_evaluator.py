@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -14,7 +14,6 @@ from core.llm.panelist import (
     PanelistVerdict,
     _extract_json,
 )
-
 
 # ── _extract_json helper ───────────────────────────────────────────────────────
 

@@ -154,10 +154,7 @@ class EntropyAnalyzerService:
             return True
 
         # Repeated characters (e.g. "AAAAAAAAAAAAAAAA")
-        if len(set(val)) <= 3:
-            return True
-
-        return False
+        return len(set(val)) <= 3
 
     def scan_code(self, source_code: str, file_path: str = "") -> list[EntropyFinding]:
         """Scans Python source code using AST to find high-entropy string literals."""

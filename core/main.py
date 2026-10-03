@@ -1,7 +1,11 @@
 """FastAPI entry point and CLI audit runner for WARDEN."""
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
 
@@ -725,6 +729,7 @@ def _run_forecast_command(
     """Executes time-series quality trend forecasting and displays projections."""
     import json
     from pathlib import Path
+
     from core.infra.database import create_db_and_tables
     from core.services.trend_forecaster import TrendForecasterService
 
@@ -796,6 +801,7 @@ def _run_anomaly_command(
     """Executes multi-model score anomaly detection and root cause attribution."""
     import json
     from pathlib import Path
+
     from core.infra.database import create_db_and_tables
     from core.services.score_anomaly_service import ScoreAnomalyService
 
@@ -878,6 +884,7 @@ def _run_bdd_command(
     """Executes AST-based BDD scenario extraction and exports Gherkin/Markdown catalogs."""
     import json
     from pathlib import Path
+
     from core.services.bdd_scenario_generator import BDDScenarioGeneratorService
 
     p = Path(target)
@@ -950,6 +957,7 @@ def _run_pr_review_command(
     """Executes PR review quality gate analysis and interacts with GitHub API."""
     import json
     from pathlib import Path
+
     from core.services.github_pr_bot import GitHubPRReviewBot
 
     bot = GitHubPRReviewBot(token=token)
@@ -966,8 +974,9 @@ def _run_pr_review_command(
     if not as_json:
         print(f"[*] WARDEN PR Review Bot running on {target_path} (PR #{pr_number} - {owner}/{repo})...")
 
-    from core.infra.database import create_db_and_tables, engine
     from sqlmodel import Session, select
+
+    from core.infra.database import create_db_and_tables, engine
     from core.models.audit import AuditReport
 
     create_db_and_tables()
@@ -975,7 +984,7 @@ def _run_pr_review_command(
     findings: list[dict[str, Any]] = []
 
     with Session(engine) as session:
-        report = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).first()
+        report = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).first()  # type: ignore[union-attr]
         if report:
             scorecard = {
                 "total_score": report.total_score if report.total_score is not None else 80.0,
@@ -1057,6 +1066,7 @@ def _run_classify_command(
     """Executes archetype classification and dynamic weighting analysis."""
     import json
     from pathlib import Path
+
     from core.services.dynamic_weight_service import DynamicWeightService
 
     target_path = Path(target)
@@ -1128,6 +1138,7 @@ def _run_mutate_command(
     """Executes mutation testing or dry-run discovery and displays findings."""
     import json
     from pathlib import Path
+
     from core.services.mutation_tester import MutationTesterService
 
     target_path = Path(target)
@@ -1361,6 +1372,7 @@ def _run_hook_command(args) -> None:
 def _run_metrics_command(as_json: bool = False) -> None:
     """Exports WARDEN operational and quality metrics to stdout."""
     import json
+
     from core.services.metrics_service import MetricsCollectorService
 
     create_db_and_tables()
@@ -1405,6 +1417,7 @@ def _run_check_ck(
     """Computes Chidamber & Kemerer (CK) Object-Oriented metrics and displays smells."""
     import json
     from pathlib import Path
+
     from core.services.ck_metrics_analyzer import CKMetricsAnalyzer
 
     p = Path(target).resolve()
@@ -1484,12 +1497,12 @@ def _run_check_attack_surface(target: str, top: int) -> None:
     print(f"[+] Toplam Paket: {report.total_packages} (Doğrudan: {report.direct_packages_count}, Dolaylı: {report.transitive_packages_count})")
     print(f"[+] Bağımlılık Kenarları: {report.total_edges} · Graf Yoğunluğu: %{round(report.graph_density * 100, 2)}")
 
-    print(f"\n--- En Kritik Bağımlılıklar (PageRank Skoru) ---")
+    print("\n--- En Kritik Bağımlılıklar (PageRank Skoru) ---")
     for node in report.critical_dependencies:
         scope_str = "DOĞRUDAN" if node.is_direct else "DOLAYLI"
         print(f"  #{node.criticality_rank} {node.name} ({node.version}) [{scope_str}] - PageRank: {node.pagerank_score:.4f}, Tahribat Yarıçapı (Blast Radius): {node.blast_radius} bileşen")
 
-    print(f"\n--- En Yüksek Tahribat Yarıçapı (En Çok Bileşenin Bağlı Olduğu Paketler) ---")
+    print("\n--- En Yüksek Tahribat Yarıçapı (En Çok Bileşenin Bağlı Olduğu Paketler) ---")
     for node in report.high_blast_radius_nodes[:5]:
         print(f"  - {node.name}: {node.blast_radius} bileşen bu pakete bağımlı")
 
@@ -1505,7 +1518,7 @@ def _run_check_typosquatting(package_name: str) -> None:
     if not match:
         print(f"[✓] '{package_name}' temiz görünüyor (Bilinen bir popüler paket taklidi tespit edilmedi).")
     else:
-        print(f"[🚨] TYPOSQUATTING TESPİT EDİLDİ!")
+        print("[🚨] TYPOSQUATTING TESPİT EDİLDİ!")
         print(f"    - Şüpheli Paket: {match.suspect_package}")
         print(f"    - Hedef Alınan Popüler Paket: {match.target_package}")
         print(f"    - Benzerlik Skoru: %{round(match.similarity_score * 100, 1)}")

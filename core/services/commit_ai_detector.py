@@ -20,37 +20,37 @@ logger = logging.getLogger(__name__)
 # Heuristic patterns that frequently appear in LLM-generated commit messages
 AI_COMMIT_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
     (
-        re.compile(r"\b(adhere(s|ing)?\s+to\s+(clean\s+code|solid(\s+principles)?|best\s+practices))\b", re.I),
+        re.compile(r"\b(adhere(s|ing)?\s+to\s+(clean\s+code|solid(\s+principles)?|best\s+practices))\b", re.IGNORECASE),
         "formal_buzzwords",
         3.5,
     ),
     (
-        re.compile(r"\b(enhance(s|d)?|improves?)\s+(modularity|maintainability|scalability|readability|robustness)\b", re.I),
+        re.compile(r"\b(enhance(s|d)?|improves?)\s+(modularity|maintainability|scalability|readability|robustness)\b", re.IGNORECASE),
         "formal_enhancement_cliche",
         3.0,
     ),
     (
-        re.compile(r"\b(this\s+commit\s+(introduces|adds|refactors|implements|modifies|updates|ensures))\b", re.I),
+        re.compile(r"\b(this\s+commit\s+(introduces|adds|refactors|implements|modifies|updates|ensures))\b", re.IGNORECASE),
         "conversational_self_reference",
         4.0,
     ),
     (
-        re.compile(r"\b(in\s+order\s+to\s+(ensure|provide|guarantee|enhance|prevent))\b", re.I),
+        re.compile(r"\b(in\s+order\s+to\s+(ensure|provide|guarantee|enhance|prevent))\b", re.IGNORECASE),
         "verbose_justification",
         2.5,
     ),
     (
-        re.compile(r"\b(comprehensive\s+(error\s+handling|logging|test\s+coverage|suite|implementation))\b", re.I),
+        re.compile(r"\b(comprehensive\s+(error\s+handling|logging|test\s+coverage|suite|implementation))\b", re.IGNORECASE),
         "comprehensive_cliche",
         2.5,
     ),
     (
-        re.compile(r"\b(seamless(ly)?(\s+\w+)?)\b", re.I),
+        re.compile(r"\b(seamless(ly)?(\s+\w+)?)\b", re.IGNORECASE),
         "ai_buzzword_seamless",
         2.5,
     ),
     (
-        re.compile(r"\b(robust\s+and\s+(scalable|maintainable|efficient))\b", re.I),
+        re.compile(r"\b(robust\s+and\s+(scalable|maintainable|efficient))\b", re.IGNORECASE),
         "ai_pair_buzzwords",
         3.5,
     ),

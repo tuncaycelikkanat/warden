@@ -6,9 +6,7 @@ import ast
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from core.services.mutation_tester import (
     ASTMutator,
@@ -16,7 +14,7 @@ from core.services.mutation_tester import (
     MutationReport,
     MutationTesterService,
 )
-from core.services.test_quality import FakeTestLocation, TestQualityResult
+from core.services.test_quality import TestQualityResult
 
 
 class TestASTMutatorOperators:
@@ -34,7 +32,7 @@ class TestASTMutatorOperators:
         assert len(cmp_mutants) >= 4
 
         # Test mutating == to != (first comparison)
-        eq_mutant = [c for c in cmp_mutants if c.original_op == "=="][0]
+        eq_mutant = next(c for c in cmp_mutants if c.original_op == "==")
         tree2 = ast.parse(code)
         mutator2 = ASTMutator(target_index=eq_mutant.index, file_path="test.py")
         mutated_tree = mutator2.visit(tree2)
@@ -52,7 +50,7 @@ class TestASTMutatorOperators:
         assert len(arith_mutants) >= 3
 
         # Test mutating + to -
-        plus_mutant = [c for c in arith_mutants if c.original_op == "+"][0]
+        plus_mutant = next(c for c in arith_mutants if c.original_op == "+")
         tree2 = ast.parse(code)
         mutator2 = ASTMutator(target_index=plus_mutant.index, file_path="test.py")
         mutated_tree = mutator2.visit(tree2)
@@ -88,14 +86,14 @@ class TestASTMutatorOperators:
         assert len(bound_mutants) == 4
 
         # True -> False
-        t_mutant = [c for c in bound_mutants if c.original_op == "True"][0]
+        t_mutant = next(c for c in bound_mutants if c.original_op == "True")
         tree_t = ast.parse(code)
         res_t = ASTMutator(target_index=t_mutant.index).visit(tree_t)
         ast.fix_missing_locations(res_t)
         assert "a = False" in ast.unparse(res_t)
 
         # 0 -> 1
-        z_mutant = [c for c in bound_mutants if c.original_op == "0"][0]
+        z_mutant = next(c for c in bound_mutants if c.original_op == "0")
         tree_z = ast.parse(code)
         res_z = ASTMutator(target_index=z_mutant.index).visit(tree_z)
         ast.fix_missing_locations(res_z)

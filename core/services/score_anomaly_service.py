@@ -10,7 +10,6 @@ Combines:
 from __future__ import annotations
 
 import logging
-import math
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -424,6 +423,7 @@ class ScoreAnomalyService:
     def evaluate_audit_id(self, audit_id: int, method: str = "hybrid") -> AdvancedAnomalyReport:
         """Fetches an audit report by ID from database and evaluates it for anomalies."""
         from sqlmodel import Session, select
+
         from core.infra.database import engine
         from core.models.audit import AuditReport
 
@@ -448,6 +448,7 @@ class ScoreAnomalyService:
     def evaluate_latest(self, repo_path: str = ".", method: str = "hybrid") -> AdvancedAnomalyReport:
         """Evaluates the most recent audit report for a given repository path."""
         from sqlmodel import Session, select
+
         from core.infra.database import engine
         from core.models.audit import AuditReport
 
@@ -462,13 +463,13 @@ class ScoreAnomalyService:
                     | (AuditReport.repo_path == short_path)
                     | (AuditReport.repo_path == ".")
                 )
-                .order_by(AuditReport.id.desc())
+                .order_by(AuditReport.id.desc())  # type: ignore[union-attr]
             )
             report = session.exec(stmt).first()
 
             if not report:
                 # If no report found for path, try getting the absolute latest report
-                report = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).first()
+                report = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).first()  # type: ignore[union-attr]
 
             if not report:
                 raise ValueError("Analiz edilecek herhangi bir denetim raporu bulunamadı.")

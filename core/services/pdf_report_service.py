@@ -5,7 +5,7 @@ Creates professional, corporate-ready PDF executive summaries using ReportLab.
 
 import io
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -164,7 +164,7 @@ class PdfReportService:
 
         # 1. Header Banner
         target_name = repo_path or data.get("repo_path") or "Target Repository"
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+        now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         profile = data.get("profile_signature", "General Python Application")
 
         header_table_data = [

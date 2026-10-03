@@ -8,7 +8,6 @@ import pytest
 from core.llm.ollama_provider import DEFAULT_OLLAMA_MODELS, OllamaProvider
 from core.llm.openai_provider import OpenAICompatibleProvider
 
-
 # ── Configuration tests ────────────────────────────────────────────────────────
 
 def test_ollama_provider_is_always_configured():

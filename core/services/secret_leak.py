@@ -86,7 +86,7 @@ class LeakedSecret:
         return self.masked_secret
 
     @classmethod
-    def from_gitleaks(cls, data: dict) -> 'LeakedSecret':
+    def from_gitleaks(cls, data: dict) -> LeakedSecret:
         """Constructs a LeakedSecret instance from Gitleaks JSON record with masked secret."""
         raw_sec = str(data.get("Secret", "") or "")
         return cls(

@@ -1,10 +1,10 @@
 """Unit tests for the ProjectTypeClassifier service (C5)."""
 
 from pathlib import Path
+
 import pytest
 
 from core.services.project_classifier import (
-    ArchetypeClassification,
     ProjectTypeClassifier,
 )
 

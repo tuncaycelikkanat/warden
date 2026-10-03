@@ -23,20 +23,20 @@ logger = logging.getLogger(__name__)
 
 # Heuristic patterns identifying candidate functions for specific invariant properties
 ROUNDTRIP_PAIRS = [
-    (re.compile(r"encode", re.I), re.compile(r"decode", re.I)),
-    (re.compile(r"serialize", re.I), re.compile(r"deserialize", re.I)),
-    (re.compile(r"to_dict", re.I), re.compile(r"from_dict", re.I)),
-    (re.compile(r"dump", re.I), re.compile(r"load", re.I)),
+    (re.compile(r"encode", re.IGNORECASE), re.compile(r"decode", re.IGNORECASE)),
+    (re.compile(r"serialize", re.IGNORECASE), re.compile(r"deserialize", re.IGNORECASE)),
+    (re.compile(r"to_dict", re.IGNORECASE), re.compile(r"from_dict", re.IGNORECASE)),
+    (re.compile(r"dump", re.IGNORECASE), re.compile(r"load", re.IGNORECASE)),
 ]
 
 IDEMPOTENT_NAMES = re.compile(
     r"^(clean|normalize|sanitize|format|strip|deduplicate|slugify|canonicalize)",
-    re.I,
+    re.IGNORECASE,
 )
 
 BOUNDED_NAMES = re.compile(
     r"(score|ratio|rate|percentage|density|weight|confidence|probability)",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -89,7 +89,7 @@ class PropertyTestGenerator:
             p_lower = param_name.lower()
             if "score" in p_lower or "ratio" in p_lower or "pct" in p_lower or "confidence" in p_lower:
                 return "st.floats(min_value=0.0, max_value=100.0, allow_nan=False)"
-            if p_lower.startswith("is_") or p_lower.startswith("has_") or "flag" in p_lower:
+            if p_lower.startswith(("is_", "has_")) or "flag" in p_lower:
                 return "st.booleans()"
             if (
                 p_lower == "id"
@@ -133,7 +133,7 @@ class PropertyTestGenerator:
         func_name = func_node.name
 
         # Skip private, dunder, or test functions
-        if func_name.startswith("_") or func_name.startswith("test_"):
+        if func_name.startswith(("_", "test_")):
             return None
 
         # Filter arguments (excluding self / cls)

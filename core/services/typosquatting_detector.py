@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,8 +56,7 @@ def jaro_distance(s1: str, s2: str) -> float:
         return 1.0
 
     match_distance = max(len1, len2) // 2 - 1
-    if match_distance < 0:
-        match_distance = 0
+    match_distance = max(match_distance, 0)
 
     s1_matches = [False] * len1
     s2_matches = [False] * len2

@@ -453,7 +453,7 @@ class AuditReportService:
         lines = [
             "\n---\n",
             "## 🤖 Vibe-Coding & Yapay Zeka Stil Analizi\n",
-            f"| Metrik | Değer | Risk Seviyesi |",
+            "| Metrik | Değer | Risk Seviyesi |",
             "| :--- | :---: | :---: |",
             f"| **AI Üretimi İz Oranı** | **%{ratio:.1f}** | {risk_icon} {risk} |",
             f"| **Tespit Edilen Gösterge Sayısı** | {indicators} | — |",
@@ -528,7 +528,7 @@ class AuditReportService:
         lines = [
             "\n---\n",
             "## 🏛️ Mimari Karmaşıklık (CK OO Metrikleri)\n",
-            f"| Metrik | Değer |",
+            "| Metrik | Değer |",
             "| :--- | :---: |",
             f"| Analiz Edilen Sınıf | {total_classes} |",
             f"| Ortalama WMC | {avg_wmc:.1f} |",

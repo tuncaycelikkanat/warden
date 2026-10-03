@@ -1,13 +1,12 @@
 """Unit tests for the StyleDriftDetector service (B2)."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 from core.services.style_drift_detector import (
-    DriftEvent,
     StyleDriftDetector,
-    StyleDriftResult,
     StyleVector,
 )
 

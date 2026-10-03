@@ -54,7 +54,7 @@ class MetricsCollectorService:
         try:
             with Session(engine) as session:
                 reports = session.exec(
-                    select(AuditReport).order_by(AuditReport.id.desc())
+                    select(AuditReport).order_by(AuditReport.id.desc())  # type: ignore[union-attr]
                 ).all()
 
                 if not reports:

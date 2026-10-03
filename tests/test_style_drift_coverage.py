@@ -8,10 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from core.services.style_drift_detector import (
-    DRIFT_SPIKE_THRESHOLD,
-    DriftEvent,
     StyleDriftDetector,
-    StyleDriftResult,
     StyleVector,
 )
 

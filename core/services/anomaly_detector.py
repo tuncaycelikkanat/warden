@@ -84,7 +84,7 @@ class AnomalyDetector:
     ) -> None:
         self.db_path = Path(db_path) if db_path else Path("warden.db")
         self.contamination = contamination
-        self._model = None
+        self._model: Any = None
         self._means: dict[str, float] = {}
         self._stds: dict[str, float] = {}
         self._is_trained = False

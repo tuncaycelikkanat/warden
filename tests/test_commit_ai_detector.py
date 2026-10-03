@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.services.commit_ai_detector import CommitAIClassification, CommitAIDetector
+from core.services.commit_ai_detector import CommitAIDetector
 
 
 class TestCommitAIDetector:

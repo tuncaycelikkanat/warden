@@ -1,9 +1,10 @@
 """Unit tests for Isolation Forest AnomalyDetector and RegressionDetector integration (C2)."""
 
 from pathlib import Path
+
 import pytest
 
-from core.services.anomaly_detector import AnomalyDetector, AnomalyReport
+from core.services.anomaly_detector import AnomalyDetector
 from core.services.regression_detector import RegressionDetector
 
 

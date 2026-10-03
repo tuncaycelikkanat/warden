@@ -3,19 +3,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
-from core.main import app, _run_pr_review_command
+from core.main import _run_pr_review_command, app
 from core.services.github_pr_bot import (
     BOT_SIGNATURE,
     GitHubAPIClient,
     GitHubPRReviewBot,
     InlineReviewComment,
-    PRReviewReport,
 )
 
 

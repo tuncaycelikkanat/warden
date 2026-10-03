@@ -297,8 +297,8 @@ class ASTMutator(ast.NodeTransformer):
         elif isinstance(node.value, int) and node.value in (0, 1):
             idx = self.current_index
             orig_s = str(node.value)
-            new_val = 1 if node.value == 0 else 0
-            mut_s = str(new_val)
+            new_int_val = 1 if node.value == 0 else 0
+            mut_s = str(new_int_val)
 
             cand = MutantCandidate(
                 id=f"{self.file_path}:{node.lineno}:bound:{idx}",
@@ -316,7 +316,7 @@ class ASTMutator(ast.NodeTransformer):
             self.current_index += 1
 
             if self.target_index is not None and self.target_index == idx:
-                new_node = ast.Constant(value=new_val)
+                new_node = ast.Constant(value=new_int_val)
                 return ast.copy_location(new_node, node)
 
         return self.generic_visit(node)
@@ -477,6 +477,7 @@ class MutationTesterService:
                     capture_output=True,
                     text=True,
                     timeout=timeout,
+                    check=False,
                 )
                 c_elapsed = time.perf_counter() - c_start
                 candidate.execution_time_seconds = round(c_elapsed, 3)

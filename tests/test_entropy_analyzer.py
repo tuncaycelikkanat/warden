@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from core.services.entropy_analyzer import EntropyAnalyzerService, EntropyFinding
+from core.services.entropy_analyzer import EntropyAnalyzerService
 
 
 class TestEntropyAnalyzer:

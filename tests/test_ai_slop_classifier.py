@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.services.ai_slop_classifier import AISlopClassifier, SlopClassificationResult
+from core.services.ai_slop_classifier import AISlopClassifier
 
 
 class TestAISlopClassifier:

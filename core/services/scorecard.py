@@ -44,7 +44,7 @@ class ScorecardAggregatorService:
         """Calculates final hierarchical scorecard and assigns grade."""
         effective_group_weights = group_weights
         effective_category_weights = category_weights
-        applied_dynamic_weights = None
+        applied_dynamic_weights: dict[str, Any] | None = None
 
         if archetype:
             from core.services.dynamic_weight_service import DynamicWeightService

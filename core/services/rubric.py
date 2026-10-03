@@ -392,7 +392,7 @@ class RubricEvaluatorService:
 
         # Build the same evidence string used in the single path
         raw_prompt = self._build_prompt(category_key, rubric, evidence)
-        sanitized_res = self.sanitizer.sanitize(raw_prompt)
+        self.sanitizer.sanitize(raw_prompt)
         # Pass just the evidence JSON section to the panelist
         evidence_str = json.dumps(
             {

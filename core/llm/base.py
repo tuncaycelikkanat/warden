@@ -28,3 +28,11 @@ class BaseLLMProvider(ABC):
         Returns:
             tuple of (raw_response_text, model_name_used)
         """
+
+    def generate_response(self, prompt: str, system_instruction: str = "") -> str:
+        """Optional synchronous text generation method for CLI tools and queries."""
+        return ""
+
+    def generate_text(self, prompt: str) -> str:
+        """Optional synchronous text generation method."""
+        return ""

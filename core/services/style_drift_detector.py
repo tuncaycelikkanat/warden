@@ -19,7 +19,6 @@ from __future__ import annotations
 import ast
 import logging
 import math
-import re
 import shutil
 import subprocess
 import textwrap

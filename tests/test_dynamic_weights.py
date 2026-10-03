@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from core.services.dynamic_weight_service import (
     ARCHETYPE_PROFILES,
     DEFAULT_LAYER1_WEIGHTS,
@@ -15,7 +13,7 @@ from core.services.dynamic_weight_service import (
     DynamicWeightService,
     WeightAdjustmentReport,
 )
-from core.services.scorecard import ScorecardAggregatorService, ScorecardResult
+from core.services.scorecard import ScorecardAggregatorService
 
 
 class TestArchetypeProfiles:

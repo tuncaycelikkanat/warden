@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
-from core.main import app, _run_check_ck
+from core.main import _run_check_ck, app
 from core.services.ck_metrics_analyzer import (
     CKMetricsAnalyzer,
-    CKMetricsReport,
-    ClassCKMetrics,
 )
 
 

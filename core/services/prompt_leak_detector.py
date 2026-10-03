@@ -22,31 +22,31 @@ logger = logging.getLogger(__name__)
 # Patterns for hardcoded system prompts and role instructions
 SYSTEM_PROMPT_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
     (
-        re.compile(r"you\s+are\s+(a|an)?\s*(helpful|expert|senior|autonomous|friendly)?\s*(ai|assistant|model|bot|agent)", re.I),
+        re.compile(r"you\s+are\s+(a|an)?\s*(helpful|expert|senior|autonomous|friendly)?\s*(ai|assistant|model|bot|agent)", re.IGNORECASE),
         "SYSTEM_PROMPT_LEAK",
         "HIGH",
         "Hardcoded LLM assistant role assignment detected.",
     ),
     (
-        re.compile(r"(strictly\s+adhere\s+to|must\s+follow)\s+(the\s+following\s+)?(rules|instructions|guidelines)", re.I),
+        re.compile(r"(strictly\s+adhere\s+to|must\s+follow)\s+(the\s+following\s+)?(rules|instructions|guidelines)", re.IGNORECASE),
         "SYSTEM_PROMPT_LEAK",
         "MEDIUM",
         "Hardcoded imperative LLM system instruction directive detected.",
     ),
     (
-        re.compile(r"(never|do\s+not)\s+reveal\s+(your\s+)?(system\s+prompt|instructions|initial\s+prompt)", re.I),
+        re.compile(r"(never|do\s+not)\s+reveal\s+(your\s+)?(system\s+prompt|instructions|initial\s+prompt)", re.IGNORECASE),
         "SYSTEM_PROMPT_LEAK",
         "HIGH",
         "Prompt leak defense instruction exposed in source code.",
     ),
     (
-        re.compile(r"(respond|output)\s+only\s+in\s+(valid\s+)?(json|xml|yaml|markdown)", re.I),
+        re.compile(r"(respond|output)\s+only\s+in\s+(valid\s+)?(json|xml|yaml|markdown)", re.IGNORECASE),
         "SYSTEM_PROMPT_LEAK",
         "LOW",
         "Strict output formatting constraint characteristic of LLM system prompts.",
     ),
     (
-        re.compile(r"<\|im_start\|>system|<<SYS>>|<system_prompt>|\[SYSTEM_PROMPT\]", re.I),
+        re.compile(r"<\|im_start\|>system|<<SYS>>|<system_prompt>|\[SYSTEM_PROMPT\]", re.IGNORECASE),
         "SPECIAL_TOKEN_RESIDUE",
         "CRITICAL",
         "Raw ChatML/LLM system token residue detected in source code.",
@@ -56,25 +56,25 @@ SYSTEM_PROMPT_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
 # Patterns for prompt injection risks and jailbreak traces
 INJECTION_RISK_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
     (
-        re.compile(r"ignore\s+(all\s+)?(previous|past|prior)\s+(instructions|prompts|directives)", re.I),
+        re.compile(r"ignore\s+(all\s+)?(previous|past|prior)\s+(instructions|prompts|directives)", re.IGNORECASE),
         "JAILBREAK_RESIDUE",
         "CRITICAL",
         "Classic 'Ignore previous instructions' jailbreak payload trace detected.",
     ),
     (
-        re.compile(r"(dan\s+mode|do\s+anything\s+now|jailbreak\s+mode|developer\s+mode\s+enabled)", re.I),
+        re.compile(r"(dan\s+mode|do\s+anything\s+now|jailbreak\s+mode|developer\s+mode\s+enabled)", re.IGNORECASE),
         "JAILBREAK_RESIDUE",
         "CRITICAL",
         "Known jailbreak persona pattern detected.",
     ),
     (
-        re.compile(r"f[\"'].*?(system|prompt|instruction).*?\{[a-zA-Z0-9_]*(user|input|query|prompt|req)[a-zA-Z0-9_]*\}", re.I),
+        re.compile(r"f[\"'].*?(system|prompt|instruction).*?\{[a-zA-Z0-9_]*(user|input|query|prompt|req)[a-zA-Z0-9_]*\}", re.IGNORECASE),
         "PROMPT_INJECTION_VULNERABILITY",
         "HIGH",
         "Direct f-string interpolation of untrusted user input into LLM prompt template without sanitization boundary.",
     ),
     (
-        re.compile(r"[\"'].*?(system|instructions?:).*?[\"']\s*\+\s*[a-zA-Z0-9_]*(user|input|query)", re.I),
+        re.compile(r"[\"'].*?(system|instructions?:).*?[\"']\s*\+\s*[a-zA-Z0-9_]*(user|input|query)", re.IGNORECASE),
         "PROMPT_INJECTION_VULNERABILITY",
         "HIGH",
         "Direct string concatenation of user input into system prompt instruction context.",

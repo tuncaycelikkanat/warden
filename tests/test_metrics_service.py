@@ -63,7 +63,7 @@ class TestMetricsService:
     def test_generate_prometheus_exposition_format(self, metrics_service: MetricsCollectorService) -> None:
         output = metrics_service.generate_prometheus_exposition(uptime_override=120.5)
         assert isinstance(output, str)
-        assert output.endswith("\n") or output.endswith("1")
+        assert output.endswith(("\n", "1"))
 
         # Standard HELP and TYPE comments
         assert "# HELP warden_uptime_seconds" in output
@@ -125,6 +125,7 @@ class TestMetricsCLI:
 
     def test_run_metrics_command_json(self, capsys: pytest.CaptureFixture) -> None:
         import json
+
         from core.main import _run_metrics_command
 
         _run_metrics_command(as_json=True)

@@ -4,15 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from core.main import app
 from core.services.trend_forecaster import (
-    DimensionForecast,
-    ForecastPoint,
     QualityForecastReport,
     TrendForecasterService,
     get_grade_for_score,
