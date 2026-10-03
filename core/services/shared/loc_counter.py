@@ -1,8 +1,9 @@
-"""Centralized lines-of-code (LOC) counter for Layer 1 density metrics."""
-
+import logging
 from pathlib import Path
 
 from core.services.shared.scan_exclusions import get_scan_exclusions
+
+logger = logging.getLogger(__name__)
 
 
 def count_source_lines(repo_path: Path, exclusions: list[str] | None = None) -> int:
@@ -28,9 +29,11 @@ def count_source_lines(repo_path: Path, exclusions: list[str] | None = None) -> 
                     for line in f:
                         if line.strip():
                             total_loc += 1
-            except Exception:
+            except Exception as err:
+                logger.debug(f"Failed to read file {p}: {err}")
                 continue
-    except Exception:
+    except Exception as err:
+        logger.debug(f"Failed scanning repository for LOC: {err}")
         return 0
 
     return total_loc

@@ -304,17 +304,16 @@ class CKMetricsAnalyzer:
 
         return smells, recommendations
 
-    def analyze(self, target_path: Path | str = "core") -> CKMetricsReport:
-        """Parses all Python classes in the target path and computes full CK metrics suite."""
-        p = Path(target_path).resolve()
-        py_files: list[Path] = []
-
+    @staticmethod
+    def _find_python_files(p: Path) -> list[Path]:
         if p.is_file() and p.suffix == ".py":
-            py_files = [p]
-        elif p.is_dir():
-            py_files = [f for f in p.rglob("*.py") if ".venv" not in f.parts and "tests" not in f.parts]
+            return [p]
+        if p.is_dir():
+            return [f for f in p.rglob("*.py") if ".venv" not in f.parts and "tests" not in f.parts]
+        return []
 
-        # Phase 1: Collect class definitions, ASTs, and inheritance hierarchy
+    @staticmethod
+    def _parse_classes_and_hierarchy(py_files: list[Path]) -> tuple[dict[str, tuple[ast.ClassDef, Path]], set[str], nx.DiGraph]:
         class_nodes: dict[str, tuple[ast.ClassDef, Path]] = {}
         all_class_names: set[str] = set()
         inheritance_graph = nx.DiGraph()
@@ -332,102 +331,98 @@ class CKMetricsAnalyzer:
                     all_class_names.add(node.name)
                     inheritance_graph.add_node(node.name)
 
-        # Build inheritance edges: base -> derived
         for name, (c_node, _) in class_nodes.items():
             for base in c_node.bases:
                 base_name = ast.unparse(base).split(".")[-1]
                 if base_name in all_class_names:
                     inheritance_graph.add_edge(base_name, name)
 
-        # Phase 2: Compute CK metrics per class
-        class_metrics_list: list[ClassCKMetrics] = []
+        return class_nodes, all_class_names, inheritance_graph
 
-        for name, (c_node, file_path) in class_nodes.items():
-            method_attrs: dict[str, set[str]] = {}
-            internal_calls: dict[str, set[str]] = {}
-            all_external_calls: set[str] = set()
-            wmc = 0
-            methods_count = 0
-            all_fields: set[str] = set()
+    @staticmethod
+    def _compute_dit(inheritance_graph: nx.DiGraph, name: str) -> int:
+        ancestors = nx.ancestors(inheritance_graph, name)
+        if not ancestors:
+            return 1
+        max_path = 0
+        for anc in ancestors:
+            if inheritance_graph.in_degree(anc) == 0:
+                try:
+                    paths = list(nx.all_simple_paths(inheritance_graph, anc, name))
+                    if paths:
+                        max_path = max(max_path, max(len(path) - 1 for path in paths))
+                except Exception as exc:
+                    logger.debug("Failed computing path from %s to %s: %s", anc, name, exc)
+        return max(1, max_path + 1)
 
-            for item in c_node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    methods_count += 1
-                    method_wmc = self._compute_method_cyclomatic_complexity(item)
-                    wmc += method_wmc
+    def _analyze_single_class(
+        self,
+        name: str,
+        c_node: ast.ClassDef,
+        file_path: Path,
+        inheritance_graph: nx.DiGraph,
+        all_class_names: set[str],
+    ) -> ClassCKMetrics:
+        method_attrs: dict[str, set[str]] = {}
+        internal_calls: dict[str, set[str]] = {}
+        all_external_calls: set[str] = set()
+        wmc = 0
+        methods_count = 0
+        all_fields: set[str] = set()
 
-                    attrs = self._extract_accessed_attributes(item)
-                    method_attrs[item.name] = attrs
-                    all_fields.update(attrs)
+        for item in c_node.body:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                methods_count += 1
+                method_wmc = self._compute_method_cyclomatic_complexity(item)
+                wmc += method_wmc
 
-                    i_calls, e_calls = self._extract_called_methods(item)
-                    internal_calls[item.name] = i_calls
-                    all_external_calls.update(e_calls)
+                attrs = self._extract_accessed_attributes(item)
+                method_attrs[item.name] = attrs
+                all_fields.update(attrs)
 
-            # DIT (Depth of Inheritance Tree)
-            dit = 1
-            ancestors = nx.ancestors(inheritance_graph, name)
-            if ancestors:
-                # Find longest path from any root ancestor
-                max_path = 0
-                for anc in ancestors:
-                    if inheritance_graph.in_degree(anc) == 0:
-                        try:
-                            paths = list(nx.all_simple_paths(inheritance_graph, anc, name))
-                            if paths:
-                                max_path = max(max_path, max(len(path) - 1 for path in paths))
-                        except Exception as exc:
-                            logger.debug("Failed computing path from %s to %s: %s", anc, name, exc)
-                dit = max(1, max_path + 1)
+                i_calls, e_calls = self._extract_called_methods(item)
+                internal_calls[item.name] = i_calls
+                all_external_calls.update(e_calls)
 
-            # NOC (Number of Children)
-            noc = inheritance_graph.out_degree(name)
+        dit = self._compute_dit(inheritance_graph, name)
+        noc = inheritance_graph.out_degree(name)
+        coupled_classes = self._extract_coupled_classes(c_node, known_classes=all_class_names)
+        cbo = len(coupled_classes)
+        rfc = methods_count + len(all_external_calls)
+        lcom4, lcom_star = self._compute_lcom(method_attrs, internal_calls)
 
-            # CBO (Coupling Between Object Classes)
-            coupled_classes = self._extract_coupled_classes(c_node, known_classes=all_class_names)
-            cbo = len(coupled_classes)
+        smells, recs = self._detect_architectural_smells(
+            wmc=wmc,
+            dit=dit,
+            noc=noc,
+            cbo=cbo,
+            rfc=rfc,
+            lcom4=lcom4,
+            lcom_star=lcom_star,
+            methods_count=methods_count,
+            fields_count=len(all_fields),
+        )
 
-            # RFC (Response For a Class)
-            rfc = methods_count + len(all_external_calls)
+        return ClassCKMetrics(
+            class_name=name,
+            file_path=str(file_path),
+            line_number=c_node.lineno,
+            wmc=wmc,
+            dit=dit,
+            noc=noc,
+            cbo=cbo,
+            rfc=rfc,
+            lcom4=lcom4,
+            lcom_star=lcom_star,
+            methods_count=methods_count,
+            fields_count=len(all_fields),
+            detected_smells=smells,
+            recommendations=recs,
+        )
 
-            # LCOM4 and Henderson-Sellers LCOM*
-            lcom4, lcom_star = self._compute_lcom(method_attrs, internal_calls)
-
-            # Architectural Smells
-            smells, recs = self._detect_architectural_smells(
-                wmc=wmc,
-                dit=dit,
-                noc=noc,
-                cbo=cbo,
-                rfc=rfc,
-                lcom4=lcom4,
-                lcom_star=lcom_star,
-                methods_count=methods_count,
-                fields_count=len(all_fields),
-            )
-
-            class_metrics_list.append(
-                ClassCKMetrics(
-                    class_name=name,
-                    file_path=str(file_path),
-                    line_number=c_node.lineno,
-                    wmc=wmc,
-                    dit=dit,
-                    noc=noc,
-                    cbo=cbo,
-                    rfc=rfc,
-                    lcom4=lcom4,
-                    lcom_star=lcom_star,
-                    methods_count=methods_count,
-                    fields_count=len(all_fields),
-                    detected_smells=smells,
-                    recommendations=recs,
-                )
-            )
-
-        # Sort classes by WMC descending
+    @staticmethod
+    def _build_ck_report(p: Path, class_metrics_list: list[ClassCKMetrics]) -> CKMetricsReport:
         class_metrics_list.sort(key=lambda c: c.wmc, reverse=True)
-
         n = len(class_metrics_list)
         avg_wmc = round(sum(c.wmc for c in class_metrics_list) / max(1, n), 1)
         max_wmc = max((c.wmc for c in class_metrics_list), default=0)
@@ -465,3 +460,16 @@ class CKMetricsAnalyzer:
             high_risk_classes=high_risk,
             summary=summary,
         )
+
+    def analyze(self, target_path: Path | str = "core") -> CKMetricsReport:
+        """Parses all Python classes in the target path and computes full CK metrics suite."""
+        p = Path(target_path).resolve()
+        py_files = self._find_python_files(p)
+        class_nodes, all_class_names, inheritance_graph = self._parse_classes_and_hierarchy(py_files)
+
+        class_metrics_list: list[ClassCKMetrics] = [
+            self._analyze_single_class(name, c_node, file_path, inheritance_graph, all_class_names)
+            for name, (c_node, file_path) in class_nodes.items()
+        ]
+
+        return self._build_ck_report(p, class_metrics_list)

@@ -114,10 +114,13 @@ class AnomalyDetector:
         rows: list[list[float]] = []
         try:
             con = sqlite3.connect(str(self.db_path))
-            cur = con.cursor()
-            cols = ", ".join(FEATURE_NAMES)
-            query = f"SELECT {cols} FROM auditreport WHERE total_score IS NOT NULL ORDER BY id DESC LIMIT 500"
-            for row in cur.execute(query).fetchall():
+            query = (
+                "SELECT total_score, layer1_score, layer2_score, "
+                "group_security, group_code_health, group_structural, "
+                "group_resilience, group_dev_hygiene "
+                "FROM auditreport WHERE total_score IS NOT NULL ORDER BY id DESC LIMIT 500"
+            )
+            for row in con.execute(query).fetchall():
                 cleaned_row = []
                 for val in row:
                     if val is None or val == -1:
@@ -141,7 +144,7 @@ class AnomalyDetector:
 
         for i in range(50):
             row = []
-            for m, s in zip(base_means, stds):
+            for m, s in zip(base_means, stds, strict=True):
                 val = m + (((i % 7) - 3) * (s / 3.0))
                 row.append(max(0.0, min(100.0, val)))
             baseline_rows.append(row)

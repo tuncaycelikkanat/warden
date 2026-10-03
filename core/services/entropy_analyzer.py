@@ -191,7 +191,7 @@ class EntropyAnalyzerService:
 
             # Dictionary literal: {"api_key": "secret"}
             elif isinstance(node, ast.Dict):
-                for k, v in zip(node.keys, node.values):
+                for k, v in zip(node.keys, node.values, strict=True):
                     key_name = ""
                     if isinstance(k, ast.Constant) and isinstance(k.value, str):
                         key_name = k.value

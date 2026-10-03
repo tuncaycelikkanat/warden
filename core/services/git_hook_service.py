@@ -83,7 +83,7 @@ class GitHookService:
                 pre_commit_path.write_text(PRE_COMMIT_TEMPLATE, encoding="utf-8")
                 # chmod +x (0o755)
                 cur_mode = os.stat(pre_commit_path).st_mode
-                os.chmod(pre_commit_path, cur_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                os.chmod(pre_commit_path, cur_mode | stat.S_IXUSR)
             except Exception as e:
                 logger.error(f"Failed to write pre-commit hook: {e}")
                 success = False
@@ -94,7 +94,7 @@ class GitHookService:
                 content = PRE_PUSH_TEMPLATE.format(min_score=min_score)
                 pre_push_path.write_text(content, encoding="utf-8")
                 cur_mode = os.stat(pre_push_path).st_mode
-                os.chmod(pre_push_path, cur_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                os.chmod(pre_push_path, cur_mode | stat.S_IXUSR)
             except Exception as e:
                 logger.error(f"Failed to write pre-push hook: {e}")
                 success = False

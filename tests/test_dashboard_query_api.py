@@ -28,10 +28,6 @@ def test_api_dashboard_query_valid(client: TestClient) -> None:
 def test_api_dashboard_query_security_violation_returns_400(client: TestClient) -> None:
     # Malicious injection attempting to drop tables
     payload = {"query": "DROP TABLE auditreport"}
-    # The service will sanitize and reject non-SELECT
-    response = client.post("/api/v1/dashboard/query", json=payload)
-    # Natural language fallback may generate a safe query, but if raw SQL injection is tested:
-    # Let's test by mocking or asking a direct malicious SQL
     from unittest.mock import patch
     with patch("core.services.nl_query_service.NaturalLanguageQueryService.generate_sql", return_value=("DROP TABLE auditreport", "", "")):
         bad_response = client.post("/api/v1/dashboard/query", json=payload)

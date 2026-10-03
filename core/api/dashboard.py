@@ -338,9 +338,9 @@ async def execute_dashboard_query(body: DashboardQueryRequest) -> dict[str, Any]
     try:
         return service.execute_query(body.query, provider_name=body.provider)
     except ValueError as val_err:
-        raise HTTPException(status_code=400, detail=str(val_err))
+        raise HTTPException(status_code=400, detail=str(val_err)) from val_err
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Sorgu yürütülürken hata oluştu: {exc}")
+        raise HTTPException(status_code=500, detail=f"Sorgu yürütülürken hata oluştu: {exc}") from exc
 
 
 class ScoreAnomalyEvaluateRequest(BaseModel):
@@ -360,9 +360,9 @@ async def get_audit_anomaly(
     try:
         report = service.evaluate_audit_id(audit_id, method=method)
     except ValueError as val_err:
-        raise HTTPException(status_code=404, detail=str(val_err))
+        raise HTTPException(status_code=404, detail=str(val_err)) from val_err
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Anomali analizi yürütülürken hata: {exc}")
+        raise HTTPException(status_code=500, detail=f"Anomali analizi yürütülürken hata: {exc}") from exc
 
     return {
         "audit_id": audit_id,
@@ -379,7 +379,7 @@ async def evaluate_scorecard_anomaly(body: ScoreAnomalyEvaluateRequest) -> dict[
     try:
         report = service.evaluate_scorecard(body.scorecard, method=body.method)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Skor kartı değerlendirilirken hata: {exc}")
+        raise HTTPException(status_code=500, detail=f"Skor kartı değerlendirilirken hata: {exc}") from exc
 
     return {
         "evaluation": report.to_dict(),
@@ -409,7 +409,7 @@ async def get_bdd_summary(
         data["features"] = data["features"][:limit_features]
         return data
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"BDD senaryoları çıkarılırken hata: {exc}")
+        raise HTTPException(status_code=500, detail=f"BDD senaryoları çıkarılırken hata: {exc}") from exc
 
 
 @router.post("/bdd/generate")
@@ -446,7 +446,7 @@ async def generate_bdd_scenarios(body: BDDGenerateRequest) -> dict[str, Any]:
             "summary": report.summary,
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"BDD senaryoları oluşturulurken hata: {exc}")
+        raise HTTPException(status_code=500, detail=f"BDD senaryoları oluşturulurken hata: {exc}") from exc
 
 
 class PRReviewRequest(BaseModel):
@@ -480,7 +480,7 @@ async def review_pull_request_endpoint(body: PRReviewRequest) -> dict[str, Any]:
         )
         return report.to_dict()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"PR değerlendirilirken hata oluştu: {exc}")
+        raise HTTPException(status_code=500, detail=f"PR değerlendirilirken hata oluştu: {exc}") from exc
 
 
 @router.post("/github/webhook")
@@ -553,7 +553,7 @@ async def get_ck_metrics(
             "summary": report.summary,
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"CK metrikleri hesaplanırken hata: {exc}")
+        raise HTTPException(status_code=500, detail=f"CK metrikleri hesaplanırken hata: {exc}") from exc
 
 
 

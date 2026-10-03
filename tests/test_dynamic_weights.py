@@ -164,6 +164,7 @@ class TestScorecardIntegration:
         res_fastapi = sc.calculate(l1, layer2_data=[], archetype="FASTAPI_API")
         res_cli = sc.calculate(l1, layer2_data=[], archetype="CLI_TOOL")
 
+        assert res_default.total_score > 0
         assert res_fastapi.archetype == "FASTAPI_API"
         assert res_fastapi.dynamic_weights is not None
         assert "layer1" in res_fastapi.dynamic_weights

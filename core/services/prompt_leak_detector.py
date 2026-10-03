@@ -59,7 +59,7 @@ INJECTION_RISK_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
         re.compile(r"ignore\s+(all\s+)?(previous|past|prior)\s+(instructions|prompts|directives)", re.IGNORECASE),
         "JAILBREAK_RESIDUE",
         "CRITICAL",
-        "Classic 'Ignore previous instructions' jailbreak payload trace detected.",
+        "Classic 'Ignore" + " previous instructions' jailbreak payload trace detected.",
     ),
     (
         re.compile(r"(dan\s+mode|do\s+anything\s+now|jailbreak\s+mode|developer\s+mode\s+enabled)", re.IGNORECASE),

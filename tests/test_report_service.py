@@ -267,6 +267,7 @@ def test_build_comparison_scorecard_comprehensive(tmp_path):
         },
     }
     prev_id = svc.save_to_db(repo_str, prev_data)
+    assert prev_id > 0
 
     # Current report with L2 rubric verdicts and Vibe data
     curr_data = {

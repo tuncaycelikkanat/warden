@@ -271,7 +271,7 @@ def cli() -> None:
         help="FastAPI REST API ve MCP arka uç sunucusunu başlatır",
         description="FastAPI REST API sunucusunu başlatır (Swagger UI: http://localhost:8000/docs).",
     )
-    serve_parser.add_argument("--host", default="0.0.0.0", help="Bağlanılacak host adresi (Varsayılan: 0.0.0.0)")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Bağlanılacak host adresi (Varsayılan: 127.0.0.1)")
     serve_parser.add_argument("--port", type=int, default=8000, help="Dinlenecek port numarası (Varsayılan: 8000)")
     serve_parser.add_argument("--reload", action="store_true", help="Canlı yeniden yükleme modunu etkinleştirir")
 

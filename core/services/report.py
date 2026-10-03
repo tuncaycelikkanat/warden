@@ -206,6 +206,114 @@ class AuditReportService:
         ])
         return md
 
+    def _format_l1_group_row(self, g: Any, cg: float, pg: float | None) -> str:
+        pg_str = f"{pg:.1f}" if pg is not None else "—"
+        return (
+            f"| **{g.emoji} {g.label}** | **%{g.weight*100:.1f}** | **{pg_str}** | "
+            f"**{cg:.1f}** | **{self._fmt_delta(cg, pg)}** | **{self._fmt_status(cg)}** | **Grup Ağırlıklı Ortalaması** |"
+        )
+
+    def _format_l1_member_row(self, m: Any, cm: float | None, pm: float | None, desc: str) -> str:
+        pm_str = f"{pm:.1f}" if pm is not None else "—"
+        if cm is None:
+            return f"| ├─ `{m.label}` | %{m.weight*100:.1f} | {pm_str} | — | — | ⚪ Ölçülemedi | {desc} |"
+        return (
+            f"| ├─ `{m.label}` | %{m.weight*100:.1f} | {pm_str} | {cm:.1f} | "
+            f"{self._fmt_delta(cm, pm)} | {self._fmt_status(cm)} | {desc} |"
+        )
+
+    @staticmethod
+    def _describe_security(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        sec = l1.get("security") or raw.get("security") or []
+        cnt = len(sec) if isinstance(sec, list) else len(sec.get("issues", [])) if isinstance(sec, dict) else 0
+        return f"SAST statik analiz: {cnt} sorun tespit edildi" if cnt else "SAST statik analiz: sorun tespit edilmedi ✓"
+
+    @staticmethod
+    def _describe_leaks(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        leaks = l1.get("leaks") or raw.get("leaks") or []
+        cnt = len(leaks) if isinstance(leaks, list) else 0
+        return f"Gizli anahtar taraması: {cnt} sızıntı tespit edildi 🔑" if cnt else "Gizli anahtar taraması: sızıntı bulunmadı ✓"
+
+    @staticmethod
+    def _describe_deps(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        deps = l1.get("dependencies") or raw.get("dependencies") or []
+        cnt = len(deps) if isinstance(deps, list) else len(deps.get("vulnerabilities", [])) if isinstance(deps, dict) else 0
+        return f"CVE zafiyet taraması: {cnt} açık bağımlılık" if cnt else "CVE zafiyet taraması: 0 açık bağımlılık ✓"
+
+    @staticmethod
+    def _describe_lint(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        lint = l1.get("lint") or raw.get("lint") or {}
+        cnt = lint.get("error_count", 0) if isinstance(lint, dict) else 0
+        return f"Ruff linter: {cnt} uyarı/hata (F401, S603, S607 ağırlıklı)" if cnt else "Ruff linter: hata/uyarı yok ✓"
+
+    @staticmethod
+    def _describe_types(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        meta = l1.get("type_safety_meta") or raw.get("type_safety") or {}
+        cnt = meta.get("error_count", 0) if isinstance(meta, dict) else 0
+        return f"Mypy statik tip analizi: {cnt} uyumsuzluk" if cnt else "Mypy statik tip analizi: tip uyumsuzluğu yok ✓"
+
+    @staticmethod
+    def _describe_tests(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        tq = l1.get("test_quality_meta") or raw.get("test_quality") or {}
+        tot = tq.get("total_tests", 0) if isinstance(tq, dict) else 0
+        fake = tq.get("fake_tests", 0) if isinstance(tq, dict) else 0
+        return f"Test kalitesi: {tot} test, {fake} sahte/assertion-sız" if tot else "Test kalitesi: gerçek assertion oranı analizi"
+
+    @staticmethod
+    def _describe_complexity(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        comp = l1.get("complexity") or raw.get("complexity") or {}
+        avg = comp.get("avg_complexity", comp.get("average_complexity", 0)) if isinstance(comp, dict) else 0
+        return f"Siklomatik karmaşıklık: ortalama {avg:.2f}" if avg else "Siklomatik karmaşıklık analizi"
+
+    @staticmethod
+    def _describe_duplication(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        dup = l1.get("duplication") or raw.get("duplication") or {}
+        pct = dup.get("duplication_pct", dup.get("percentage", 0)) if isinstance(dup, dict) else 0
+        return f"Kopya blok analizi (jscpd): %{pct:.2f} tekrar oranı" if pct else "Kopya blok analizi (jscpd)"
+
+    @staticmethod
+    def _describe_tech_debt(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        td = l1.get("tech_debt") or raw.get("tech_debt") or {}
+        todo = len(td.get("todo_markers", [])) if isinstance(td, dict) and "todo_markers" in td else (td.get("todo_count", 0) if isinstance(td, dict) else 0)
+        churn = len(td.get("churn_entries", [])) if isinstance(td, dict) and "churn_entries" in td else (td.get("hotspot_commit_count", 0) if isinstance(td, dict) else 0)
+        return f"Git churn analizi: {churn} hotspot commit, {todo} TODO/FIXME" if (churn or todo) else "Git commit churn ve hotspot analizi"
+
+    @staticmethod
+    def _describe_coverage(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        cov = l1.get("coverage") or raw.get("coverage") or {}
+        cov_pct = cov.get("line_rate", cov.get("coverage_pct")) if isinstance(cov, dict) else None
+        return f"Satır bazlı kod kapsamı: %{cov_pct:.1f}" if cov_pct is not None else "Satır bazlı kod kapsamı (execution_timeout nedeniyle ölçülemedi)"
+
+    @staticmethod
+    def _describe_docs(l1: dict[str, Any], raw: dict[str, Any]) -> str:
+        docs = l1.get("docs") or raw.get("documentation") or {}
+        pct = docs.get("docstring_coverage_pct", docs.get("coverage_percentage", 0)) if isinstance(docs, dict) else 0
+        return f"Docstring kapsama: %{pct:.1f}" if pct else "Docstring kapsama oranı"
+
+    def _build_l1_descriptions(self, data: dict[str, Any] | None) -> dict[str, str]:
+        """Builds descriptive evaluation strings for Layer 1 members."""
+        raw = data or {}
+        l1 = (raw.get("scorecard", {}) or {}).get("breakdown", {}).get("layer1_raw", {}) or {}
+
+        return {
+            "security_semgrep": self._describe_security(l1, raw),
+            "secret_leak_gitleaks": self._describe_leaks(l1, raw),
+            "dependency_osv": self._describe_deps(l1, raw),
+            "license_compliance": "Üçüncü taraf lisans uyumluluk ve copyleft denetimi",
+            "test_coverage": self._describe_coverage(l1, raw),
+            "test_quality": self._describe_tests(l1, raw),
+            "lint_style_ruff": self._describe_lint(l1, raw),
+            "type_safety": self._describe_types(l1, raw),
+            "complexity_radon": self._describe_complexity(l1, raw),
+            "duplication_jscpd": self._describe_duplication(l1, raw),
+            "tech_debt_churn": self._describe_tech_debt(l1, raw),
+            "resilience_ast": "Çıplak except / broad exception ve kaynak yönetim kontrolü",
+            "documentation": self._describe_docs(l1, raw),
+            "cicd_presence": "GitHub Actions otomatik CI boru hattı varlığı",
+            "docker_readiness": "Dockerfile, HEALTHCHECK direktifi ve docker-compose",
+            "commit_hygiene": "Git commit mesajlarının kalitesi ve açıklığı",
+        }
+
     def _build_l1_table(
         self,
         prev_label: str,
@@ -220,95 +328,7 @@ class AuditReportService:
         """Builds granular Layer 1 table rows for all groups and members."""
         from core.services.core_group_catalog import CORE_GROUPS
 
-        # ── Dynamic descriptions: pull real numbers from JSON data ───────────
-        raw = data or {}
-        l1_raw = (raw.get("scorecard", {}) or {}).get("breakdown", {}).get("layer1_raw", {}) or {}
-
-        sec = l1_raw.get("security") or raw.get("security") or []
-        sast_issues = len(sec) if isinstance(sec, list) else len(sec.get("issues", []) if isinstance(sec, dict) else [])
-
-        leaks = l1_raw.get("leaks") or raw.get("leaks") or []
-        leaks_count = len(leaks)
-
-        deps = l1_raw.get("dependencies") or raw.get("dependencies") or []
-        cve_count = len(deps) if isinstance(deps, list) else len(deps.get("vulnerabilities", []) if isinstance(deps, dict) else [])
-
-        lint = l1_raw.get("lint") or raw.get("lint") or {}
-        ruff_errors = lint.get("error_count", 0) if isinstance(lint, dict) else 0
-
-        type_meta = l1_raw.get("type_safety_meta") or raw.get("type_safety") or {}
-        mypy_errors = type_meta.get("error_count", 0) if isinstance(type_meta, dict) else 0
-
-        tq_meta = l1_raw.get("test_quality_meta") or raw.get("test_quality") or {}
-        test_total = tq_meta.get("total_tests", 0) if isinstance(tq_meta, dict) else 0
-        fake_tests = tq_meta.get("fake_tests", 0) if isinstance(tq_meta, dict) else 0
-
-        comp = l1_raw.get("complexity") or raw.get("complexity") or {}
-        avg_cc = comp.get("avg_complexity", comp.get("average_complexity", 0)) if isinstance(comp, dict) else 0
-
-        dup = l1_raw.get("duplication") or raw.get("duplication") or {}
-        dup_pct = dup.get("duplication_pct", dup.get("percentage", 0)) if isinstance(dup, dict) else 0
-
-        td = l1_raw.get("tech_debt") or raw.get("tech_debt") or {}
-        todo_count = len(td.get("todo_markers", [])) if isinstance(td, dict) and "todo_markers" in td else (td.get("todo_count", 0) if isinstance(td, dict) else 0)
-        commit_count = len(td.get("churn_entries", [])) if isinstance(td, dict) and "churn_entries" in td else (td.get("hotspot_commit_count", 0) if isinstance(td, dict) else 0)
-
-        cov = l1_raw.get("coverage") or raw.get("coverage") or {}
-        cov_pct = cov.get("line_rate", cov.get("coverage_pct")) if isinstance(cov, dict) else None
-
-        docs = l1_raw.get("docs") or raw.get("documentation") or {}
-        doc_pct = docs.get("docstring_coverage_pct", docs.get("coverage_percentage", 0)) if isinstance(docs, dict) else 0
-
-        member_descriptions: dict[str, str] = {
-            "security_semgrep": (
-                f"SAST statik analiz: {sast_issues} sorun tespit edildi"
-                if sast_issues else "SAST statik analiz: sorun tespit edilmedi ✓"
-            ),
-            "secret_leak_gitleaks": (
-                f"Gizli anahtar taraması: {leaks_count} sızıntı tespit edildi 🔑"
-                if leaks_count else "Gizli anahtar taraması: sızıntı bulunmadı ✓"
-            ),
-            "dependency_osv": (
-                f"CVE zafiyet taraması: {cve_count} açık bağımlılık" if cve_count
-                else "CVE zafiyet taraması: 0 açık bağımlılık ✓"
-            ),
-            "license_compliance": "Üçüncü taraf lisans uyumluluk ve copyleft denetimi",
-            "test_coverage": (
-                f"Satır bazlı kod kapsamı: %{cov_pct:.1f}" if cov_pct is not None
-                else "Satır bazlı kod kapsamı (execution_timeout nedeniyle ölçülemedi)"
-            ),
-            "test_quality": (
-                f"Test kalitesi: {test_total} test, {fake_tests} sahte/assertion-sız"
-                if test_total else "Test kalitesi: gerçek assertion oranı analizi"
-            ),
-            "lint_style_ruff": (
-                f"Ruff linter: {ruff_errors} uyarı/hata (F401, S603, S607 ağırlıklı)"
-                if ruff_errors else "Ruff linter: hata/uyarı yok ✓"
-            ),
-            "type_safety": (
-                f"Mypy statik tip analizi: {mypy_errors} uyumsuzluk"
-                if mypy_errors else "Mypy statik tip analizi: tip uyumsuzluğu yok ✓"
-            ),
-            "complexity_radon": (
-                f"Siklomatik karmaşıklık: ortalama {avg_cc:.2f}"
-                if avg_cc else "Siklomatik karmaşıklık analizi"
-            ),
-            "duplication_jscpd": (
-                f"Kopya blok analizi (jscpd): %{dup_pct:.2f} tekrar oranı"
-                if dup_pct else "Kopya blok analizi (jscpd)"
-            ),
-            "tech_debt_churn": (
-                f"Git churn analizi: {commit_count} hotspot commit, {todo_count} TODO/FIXME"
-                if (commit_count or todo_count) else "Git commit churn ve hotspot analizi"
-            ),
-            "resilience_ast": "Çıplak except / broad exception ve kaynak yönetim kontrolü",
-            "documentation": (
-                f"Docstring kapsama: %{doc_pct:.1f}" if doc_pct else "Docstring kapsama oranı"
-            ),
-            "cicd_presence": "GitHub Actions otomatik CI boru hattı varlığı",
-            "docker_readiness": "Dockerfile, HEALTHCHECK direktifi ve docker-compose",
-            "commit_hygiene": "Git commit mesajlarının kalitesi ve açıklığı",
-        }
+        member_descriptions = self._build_l1_descriptions(data)
 
         md = [
             "#### 📋 Katman 1: 5 Grup ve 15 Mekanik Üye Detay Karnesi\n",
@@ -319,18 +339,12 @@ class AuditReportService:
         for g in CORE_GROUPS:
             cg = curr_groups.get(g.key, 0.0)
             pg = prev_groups.get(g.key) if has_prev else None
-            md.append(f"| **{g.emoji} {g.label}** | **%{g.weight*100:.1f}** | **{f'{pg:.1f}' if pg is not None else '—'}** | **{cg:.1f}** | **{self._fmt_delta(cg, pg)}** | **{self._fmt_status(cg)}** | **Grup Ağırlıklı Ortalaması** |")
+            md.append(self._format_l1_group_row(g, cg, pg))
             for m in g.members:
                 cm = curr_members.get(m.key)
                 pm = prev_members.get(m.key) if has_prev else None
                 desc = member_descriptions.get(m.key, "")
-                if cm is None:
-                    status_lbl = "⚪ Ölçülemedi"
-                    pm_str = f"{pm:.1f}" if pm is not None else "—"
-                    md.append(f"| ├─ `{m.label}` | %{m.weight*100:.1f} | {pm_str} | — | — | {status_lbl} | {desc} |")
-                else:
-                    pm_str = f"{pm:.1f}" if pm is not None else "—"
-                    md.append(f"| ├─ `{m.label}` | %{m.weight*100:.1f} | {pm_str} | {cm:.1f} | {self._fmt_delta(cm, pm)} | {self._fmt_status(cm)} | {desc} |")
+                md.append(self._format_l1_member_row(m, cm, pm, desc))
 
         return md
 

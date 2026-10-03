@@ -226,10 +226,13 @@ class ScoreAnomalyService:
         rows: list[list[float]] = []
         try:
             con = sqlite3.connect(str(self.db_path))
-            cur = con.cursor()
-            cols = ", ".join(FEATURE_NAMES)
-            query = f"SELECT {cols} FROM auditreport WHERE total_score IS NOT NULL ORDER BY id DESC LIMIT 500"
-            for row in cur.execute(query).fetchall():
+            query = (
+                "SELECT total_score, layer1_score, layer2_score, "
+                "group_security, group_code_health, group_structural, "
+                "group_resilience, group_dev_hygiene "
+                "FROM auditreport WHERE total_score IS NOT NULL ORDER BY id DESC LIMIT 500"
+            )
+            for row in con.execute(query).fetchall():
                 cleaned = []
                 for val in row:
                     if val is None or val == -1:
@@ -251,7 +254,7 @@ class ScoreAnomalyService:
         rows = []
         for i in range(60):
             row = []
-            for dim_idx, (m, s) in enumerate(zip(base_means, stds)):
+            for dim_idx, (m, s) in enumerate(zip(base_means, stds, strict=True)):
                 shift = ((( (i + dim_idx * 7) % 9) - 4) * (s / 3.5)) + ((( (i * 3 + dim_idx * 5) % 5) - 2) * 1.0)
                 row.append(max(0.0, min(100.0, m + shift)))
             rows.append(row)

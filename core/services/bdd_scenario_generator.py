@@ -240,7 +240,7 @@ class ASTScenarioExtractor:
         if isinstance(test_expr, ast.Compare):
             left_str = ast.unparse(test_expr.left)
             ops_strs = []
-            for op, comparator in zip(test_expr.ops, test_expr.comparators):
+            for op, comparator in zip(test_expr.ops, test_expr.comparators, strict=True):
                 op_phrase = COMPARISON_OPERATORS.get(type(op), "should satisfy comparison with")
                 right_str = ast.unparse(comparator)
                 ops_strs.append(f"{op_phrase} {right_str}")

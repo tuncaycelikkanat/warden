@@ -108,6 +108,7 @@ class TestSBOMGenerator:
         out_file = tmp_path / "output_bom.json"
 
         json_out = self.service.export_json(tmp_path, output_path=out_file)
+        assert json_out
         assert out_file.exists()
         loaded = json.loads(out_file.read_text(encoding="utf-8"))
         assert loaded["bomFormat"] == "CycloneDX"

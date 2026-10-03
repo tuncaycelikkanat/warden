@@ -105,7 +105,7 @@ class DuplicationService:
         try:
             return json.loads(report_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Failed to parse jscpd report: {e}", e.doc, e.pos)
+            raise json.JSONDecodeError(f"Failed to parse jscpd report: {e}", e.doc, e.pos) from e
 
     def _build_result(self, report: dict[str, Any], repo_path: Path) -> DuplicationResult:
         """Constructs DuplicationResult from parsed jscpd JSON report."""

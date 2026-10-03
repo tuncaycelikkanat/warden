@@ -95,7 +95,7 @@ def jaro_winkler_similarity(s1: str, s2: str, prefix_scale: float = 0.1) -> floa
     """Computes Jaro-Winkler similarity, prioritizing common prefixes."""
     jaro_sim = jaro_distance(s1, s2)
     prefix_len = 0
-    for c1, c2 in zip(s1[:4], s2[:4]):
+    for c1, c2 in zip(s1[:4], s2[:4], strict=False):
         if c1 == c2:
             prefix_len += 1
         else:

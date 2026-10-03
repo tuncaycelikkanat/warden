@@ -68,14 +68,14 @@ class FakeTestDetector:
         left_dump = ast.dump(comp.left)
 
         # 1. Self comparison (e.g. assert x == x or assert x is x)
-        for op, right in zip(comp.ops, comp.comparators):
+        for op, right in zip(comp.ops, comp.comparators, strict=True):
             right_dump = ast.dump(right)
             if isinstance(op, (ast.Eq, ast.Is)) and left_dump == right_dump:
                 return True, "Değişkenin kendisiyle karşılaştırılması (assert x == x)"
 
         # 2. assert len(...) >= 0 (len is always >= 0)
         if isinstance(comp.left, ast.Call) and isinstance(comp.left.func, ast.Name) and comp.left.func.id == "len":
-            for op, right in zip(comp.ops, comp.comparators):
+            for op, right in zip(comp.ops, comp.comparators, strict=True):
                 if isinstance(op, ast.GtE) and isinstance(right, ast.Constant) and right.value == 0:
                     return True, "len(...) >= 0 her zaman doğrudur (Tautology)"
 

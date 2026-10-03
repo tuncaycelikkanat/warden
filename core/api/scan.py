@@ -71,7 +71,7 @@ async def run_audit(request: AuditRequest):
     try:
         validated_path = validate_audit_path(request.repo_path)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         
     orch = AuditOrchestrator()

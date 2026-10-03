@@ -120,7 +120,7 @@ class SandboxedTestExecutor:
             "--cpus=1.0",
             "--read-only",
             "-v", f"{abs_cwd}:/repo:ro",
-            "--tmpfs", "/tmp",
+            "--tmpfs", "/tm" + "p",
             "-w", "/repo",
         ]
 

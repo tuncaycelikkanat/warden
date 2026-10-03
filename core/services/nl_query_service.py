@@ -267,7 +267,7 @@ class NaturalLanguageQueryService:
                 columns = list(result.keys())
                 for row in result.fetchall():
                     row_dict = {}
-                    for col, val in zip(columns, row):
+                    for col, val in zip(columns, row, strict=False):
                         # Convert non-serializable objects (like datetime) to string
                         if hasattr(val, "isoformat"):
                             row_dict[col] = val.isoformat()
@@ -276,7 +276,7 @@ class NaturalLanguageQueryService:
                     rows.append(row_dict)
         except Exception as e:
             logger.error(f"Failed to execute query '{sanitized_sql}': {e}")
-            raise RuntimeError(f"Sorgu yürütme hatası: {e}")
+            raise RuntimeError(f"Sorgu yürütme hatası: {e}") from e
 
         execution_ms = round((time.perf_counter() - start_time) * 1000, 2)
 

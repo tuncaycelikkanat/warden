@@ -123,16 +123,10 @@ class StyleDriftDetector:
     def __init__(self, max_commits: int = DEFAULT_MAX_COMMITS) -> None:
         self.max_commits = max_commits
 
-    def compute_style_vector_from_ast(self, code: str) -> StyleVector:
-        """Extracts AST and stylistic features from Python source code."""
-        if not code.strip():
-            return StyleVector()
-
-        dedented_code = textwrap.dedent(code)
-        lines = dedented_code.splitlines()
+    @staticmethod
+    def _calc_comment_density(lines: list[str]) -> float:
         code_lines = 0
         comment_lines = 0
-
         for line in lines:
             stripped = line.strip()
             if not stripped:
@@ -143,69 +137,69 @@ class StyleDriftDetector:
                 code_lines += 1
                 if "#" in stripped:
                     comment_lines += 1
+        return comment_lines / max(1, code_lines)
 
-        comment_density = comment_lines / max(1, code_lines)
-
-        tree = None
+    @staticmethod
+    def _parse_ast(dedented_code: str) -> ast.AST | None:
         try:
-            tree = ast.parse(dedented_code)
+            return ast.parse(dedented_code)
         except SyntaxError:
-            # Attempt wrapping in dummy function for snippet lines (e.g. diff hunks)
             try:
                 indented = textwrap.indent(dedented_code, "    ")
-                tree = ast.parse(f"def _snippet_wrapper():\n{indented}")
+                return ast.parse(f"def _snippet_wrapper():\n{indented}")
             except SyntaxError:
-                return StyleVector(comment_density=comment_density)
+                return None
 
-        functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
-        # Filter out dummy wrapper if added
-        functions = [f for f in functions if f.name != "_snippet_wrapper"]
-        classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-
-        # Docstring ratio (exclude dunders like __init__ unless explicitly documented)
+    @staticmethod
+    def _calc_docstring_ratio(functions: list[ast.FunctionDef | ast.AsyncFunctionDef]) -> float:
         target_funcs = [
             f for f in functions
             if not (f.name.startswith("__") and f.name.endswith("__")) or ast.get_docstring(f)
         ]
         if not target_funcs and functions:
             target_funcs = functions
-
+        if not target_funcs:
+            return 0.0
         documented = sum(1 for f in target_funcs if ast.get_docstring(f))
-        docstring_ratio = (documented / max(1, len(target_funcs))) if target_funcs else 0.0
+        return documented / max(1, len(target_funcs))
 
-        # Type annotation ratio
-        total_args_returns = 0
-        annotated_args_returns = 0
+    @staticmethod
+    def _calc_type_ratio(functions: list[ast.FunctionDef | ast.AsyncFunctionDef]) -> float:
+        total = 0
+        annotated = 0
         for f in functions:
-            # return annotation
-            total_args_returns += 1
+            total += 1
             if f.returns is not None:
-                annotated_args_returns += 1
-            # argument annotations
+                annotated += 1
             for arg in f.args.args:
                 if arg.arg in ("self", "cls"):
                     continue
-                total_args_returns += 1
+                total += 1
                 if arg.annotation is not None:
-                    annotated_args_returns += 1
+                    annotated += 1
+        return annotated / max(1, total)
 
-        type_ratio = annotated_args_returns / max(1, total_args_returns)
-
-        # Naming conventions & identifier length
+    @staticmethod
+    def _calc_naming_and_len(
+        functions: list[ast.FunctionDef | ast.AsyncFunctionDef],
+        classes: list[ast.ClassDef],
+        tree: ast.AST,
+    ) -> tuple[float, float]:
         func_names = [f.name for f in functions if not (f.name.startswith("__") and f.name.endswith("__"))]
-        var_names: list[str] = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-                var_names.append(node.id)
-
+        var_names: list[str] = [
+            node.id for node in ast.walk(tree)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+        ]
         target_snake_names = func_names + var_names
         snake_case_count = sum(1 for n in target_snake_names if "_" in n or n.islower())
         naming_snake_ratio = (snake_case_count / max(1, len(target_snake_names))) if target_snake_names else 1.0
 
         all_names = [f.name for f in functions] + [c.name for c in classes] + var_names
-        avg_id_len = sum(len(n) for n in all_names) / max(1, len(all_names)) if all_names else 8.0
+        avg_id_len = (sum(len(n) for n in all_names) / max(1, len(all_names))) if all_names else 8.0
+        return naming_snake_ratio, avg_id_len
 
-        # Exception specificity
+    @staticmethod
+    def _calc_exception_specificity(tree: ast.AST) -> float:
         except_handlers = [node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)]
         specific_excepts = 0
         for h in except_handlers:
@@ -213,9 +207,10 @@ class StyleDriftDetector:
                 if isinstance(h.type, ast.Name) and h.type.id in ("Exception", "BaseException"):
                     continue
                 specific_excepts += 1
-        exception_specificity = specific_excepts / max(1, len(except_handlers))
+        return specific_excepts / max(1, len(except_handlers))
 
-        # Nesting depth calculation
+    @staticmethod
+    def _calc_nesting_depth(tree: ast.AST) -> float:
         depths: list[int] = []
 
         def _calc_depth(node: ast.AST, cur_depth: int) -> None:
@@ -226,7 +221,32 @@ class StyleDriftDetector:
                 _calc_depth(child, cur_depth)
 
         _calc_depth(tree, 0)
-        avg_depth = (sum(depths) / max(1, len(depths))) if depths else 1.0
+        return (sum(depths) / max(1, len(depths))) if depths else 1.0
+
+    def compute_style_vector_from_ast(self, code: str) -> StyleVector:
+        """Extracts AST and stylistic features from Python source code."""
+        if not code.strip():
+            return StyleVector()
+
+        dedented_code = textwrap.dedent(code)
+        lines = dedented_code.splitlines()
+        comment_density = self._calc_comment_density(lines)
+
+        tree = self._parse_ast(dedented_code)
+        if tree is None:
+            return StyleVector(comment_density=round(comment_density, 3))
+
+        functions = [
+            node for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name != "_snippet_wrapper"
+        ]
+        classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+
+        docstring_ratio = self._calc_docstring_ratio(functions)
+        type_ratio = self._calc_type_ratio(functions)
+        naming_snake_ratio, avg_id_len = self._calc_naming_and_len(functions, classes, tree)
+        exception_specificity = self._calc_exception_specificity(tree)
+        avg_depth = self._calc_nesting_depth(tree)
 
         return StyleVector(
             comment_density=round(comment_density, 3),
@@ -243,7 +263,7 @@ class StyleDriftDetector:
         a = vec_a.to_list()
         b = vec_b.to_list()
 
-        dot = sum(x * y for x, y in zip(a, b))
+        dot = sum(x * y for x, y in zip(a, b, strict=True))
         norm_a = math.sqrt(sum(x * x for x in a))
         norm_b = math.sqrt(sum(y * y for y in b))
 
@@ -364,7 +384,7 @@ class StyleDriftDetector:
         baseline_sample_size = max(1, min(5, len(commit_vectors) // 2))
         baseline_lists = [v.to_list() for _, v in commit_vectors[:baseline_sample_size]]
         avg_baseline = [
-            sum(vals) / len(vals) for vals in zip(*baseline_lists)
+            sum(vals) / len(vals) for vals in zip(*baseline_lists, strict=False)
         ]
         baseline_vec = StyleVector(
             comment_density=avg_baseline[0],

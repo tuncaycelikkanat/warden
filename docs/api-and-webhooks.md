@@ -63,7 +63,7 @@ import httpx
 # 1. Token Alma (Eğer auth aktifse)
 auth_resp = httpx.post("http://localhost:8000/api/v1/auth/token", json={
     "username": "admin",
-    "password": "your_password_here"
+    "password": os.environ.get("WARDEN_ADMIN_PASSWORD", "mock-placeholder")
 })
 token = auth_resp.json()["access_token"]
 headers = {"Authorization": f"Bearer {token}"}

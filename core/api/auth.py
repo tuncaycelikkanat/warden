@@ -86,7 +86,7 @@ def verify_access_token(token: str, secret: str = JWT_SECRET) -> dict[str, Any]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     if "exp" in payload and time.time() > payload["exp"]:
         raise HTTPException(

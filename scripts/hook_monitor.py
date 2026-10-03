@@ -42,7 +42,7 @@ def main():
         print(json.dumps({"decision": "allow"}))
         
     except Exception as e:
-        # On error, allow execution but we could log it
+        sys.stderr.write(f"Hook error: {e!s}\n")
         print(json.dumps({"decision": "allow", "reason": f"Hook error: {e!s}"}))
 
 if __name__ == "__main__":

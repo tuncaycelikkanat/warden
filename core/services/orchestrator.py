@@ -417,7 +417,7 @@ class AuditOrchestrator:
         evidence: CategoryEvidence,
     ) -> RubricVerdict:
         """Evaluates a dynamic category under concurrency limiting with exponential backoff retry."""
-        import random
+        import secrets
 
         async with semaphore:
             for attempt in range(3):
@@ -426,7 +426,7 @@ class AuditOrchestrator:
                 except Exception as exc:
                     err_str = str(exc).lower()
                     if "429" in err_str or "rate" in err_str or "quota" in err_str:
-                        backoff = (2 ** attempt) + random.uniform(0.1, 0.5)
+                        backoff = (2 ** attempt) + secrets.SystemRandom().uniform(0.1, 0.5)
                         logger.warning(
                             f"Rate limit hit evaluating '{category_key}', retrying in {backoff:.2f}s..."
                         )
@@ -499,7 +499,7 @@ class AuditOrchestrator:
                     "citation_warning": verdict.citation_warning,
                 },
             }
-            for cat, verdict in zip(profile.dynamic_categories, verdicts)
+            for cat, verdict in zip(profile.dynamic_categories, verdicts, strict=False)
         ]
 
     async def run_full_audit(

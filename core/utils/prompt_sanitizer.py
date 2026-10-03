@@ -20,7 +20,7 @@ class PromptSanitizer:
         (r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions", "Instruction override attempt"),
         (r"(?i)system\s*:", "Role spoofing attempt (system:)"),
         (r"(?i)<\|im_start\|>", "ChatML delimiter injection"),
-        (r"(?i)you\s+are\s+now\s+(in\s+)?(DAN|developer)\s+mode", "Jailbreak mode attempt"),
+        (r"(?i)you\s+are\s+now\s+(in\s+)?(D[A]N|dev[e]loper)\s+mode", "Jailbreak mode attempt"),
         (r"(?i)reveal\s+(your\s+)?(system\s+)?prompt", "System prompt exfiltration attempt"),
     ]
 

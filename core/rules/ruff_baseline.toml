@@ -16,3 +16,20 @@ select = [
 ignore = [
     "S101",  # assert statement (standard in tests)
 ]
+
+[lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Security",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "Depends",
+    "Security",
+    "Query",
+    "Path",
+    "Body",
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S108", "S603", "S607"]
