@@ -84,7 +84,7 @@ def test_panelist_verdict_skipped():
     assert v.evaluated is False
     assert v.level is None
     assert v.confidence_score == 0.0
-    assert "missing_api_key" in v.reason
+    assert "missing_api_key" in (v.reason or "")
 
 
 def test_panelist_verdict_error():

@@ -32,7 +32,7 @@ async def test_duplication_real_copy_paste():
 
     res = await service.analyze(Path("tests/fixtures/duplication/real_copy_paste"))
     assert res.measured is True
-    assert res.duplication_pct > 20.0
+    assert res.duplication_pct is not None and res.duplication_pct > 20.0
     assert len(res.clone_pairs) >= 1
 
     clone = res.clone_pairs[0]
@@ -54,7 +54,7 @@ async def test_duplication_config_evasion_resistance():
     assert res.measured is True
     # If the local config was used, minTokens: 1000 would have caused 0 clones
     # With WARDEN's immutable baseline, the clone is caught
-    assert res.duplication_pct > 20.0
+    assert res.duplication_pct is not None and res.duplication_pct > 20.0
     assert len(res.clone_pairs) >= 1
 
 

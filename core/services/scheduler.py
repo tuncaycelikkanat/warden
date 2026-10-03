@@ -112,7 +112,7 @@ class AuditScheduler:
                 layer2_score=sc.get("layer2_score"),
             )
 
-    async def start(self, poll_interval_sec: int = 5) -> None:
+    async def start(self, poll_interval_sec: float = 5.0) -> None:
         """Starts the background scheduler loop."""
         self._running = True
         logger.info("AuditScheduler started.")

@@ -179,7 +179,7 @@ async def test_orchestrator_eval_cat_rate_limit_and_error():
     with patch.object(orch.rubric, "evaluate", side_effect=ValueError("Syntax parsing failed")):
         verdict = await orch._evaluate_category_with_limit(sem, "api_design", MagicMock())
         assert verdict.evaluated is False
-        assert "evaluation_error" in verdict.reason
+        assert "evaluation_error" in (verdict.reason or "")
 
     # 2. Rate limit retry recovery
     mock_success = RubricVerdict(level=8, justification="Good", cited_evidence=[])

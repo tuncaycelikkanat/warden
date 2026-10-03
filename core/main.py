@@ -192,38 +192,19 @@ def _run_audit_command(
         sys.exit(1)
 
 
-def cli() -> None:
-    """Main CLI entry point for WARDEN."""
-    import argparse
+def _ensure_venv_path() -> None:
+    """Ensures virtualenv bin directory containing bundled analyzers is in PATH."""
     import os
     import sys
     from pathlib import Path
 
-    # Ensure virtualenv bin directory containing bundled analyzers is in PATH
     bin_dir = str(Path(sys.executable).parent)
     if bin_dir not in os.environ.get("PATH", "").split(os.pathsep):
         os.environ["PATH"] = f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
 
-    from dotenv import load_dotenv
-    load_dotenv()
 
-    parser = argparse.ArgumentParser(
-        prog="warden",
-        description="🛡️ WARDEN: Autonomous Security & Architectural Quality Governance Engine",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Örnek Kullanımlar:
-  warden audit .                     # Mevcut dizindeki projeyi denetle
-  warden audit /path/to/repo         # Belirtilen dizindeki projeyi denetle
-  warden audit . --min-score 85      # Skor 85'in altındaysa hata döndür (CI/CD Quality Gate)
-  warden serve --port 8000           # REST API & Swagger UI sunucusunu başlat
-  warden --version                   # Sürüm bilgisini göster
-        """,
-    )
-    parser.add_argument("--version", "-v", action="version", version="WARDEN v0.1.0")
-
-    subparsers = parser.add_subparsers(dest="command", help="Kullanılabilir komutlar")
-
+def _register_core_subparsers(subparsers: Any) -> None:
+    """Registers core lifecycle CLI commands (audit, serve, milestone, metrics, hook)."""
     # Subcommand: audit
     audit_parser = subparsers.add_parser(
         "audit",
@@ -285,6 +266,69 @@ def cli() -> None:
     milestone_parser.add_argument("--label", default="baseline", help="Milestone etiketi (Varsayılan: 'baseline')")
     milestone_parser.add_argument("--clear", action="store_true", help="Mevcut milestone işaretini kaldırır")
 
+    # Subcommand: metrics (G6)
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="WARDEN operasyonel ve kalite metriklerini Prometheus / OpenMetrics formatında çıktılar (G6)",
+        description="Prometheus scraping ve izlenebilirlik için metrikleri plain-text veya JSON formatında sunar.",
+    )
+    metrics_parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Metrikleri Prometheus exposition yerine JSON formatında çıktılar",
+    )
+
+    # Subcommand: hook (H3)
+    hook_parser = subparsers.add_parser(
+        "hook",
+        help="Git hook (pre-commit & pre-push) kalite kapısı yönetimi (H3)",
+        description="Akıllı git kancalarını kurar, kaldırır veya çalıştırır.",
+    )
+    hook_subparsers = hook_parser.add_subparsers(dest="hook_action", help="Hook eylemi")
+
+    install_parser = hook_subparsers.add_parser("install", help="Git kancalarını .git/hooks dizinine kurar")
+    install_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    install_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push", "all"],
+        default="all",
+        help="Kurulacak hook türü (Varsayılan: all)",
+    )
+    install_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=80,
+        help="Pre-push için minimum kabul skoru (Varsayılan: 80)",
+    )
+
+    uninstall_parser = hook_subparsers.add_parser("uninstall", help="Kurulu WARDEN git kancalarını kaldırır")
+    uninstall_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    uninstall_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push", "all"],
+        default="all",
+        help="Kaldırılacak hook türü (Varsayılan: all)",
+    )
+
+    run_parser = hook_subparsers.add_parser("run", help="Belirtilen git kancasını manuel çalıştırır")
+    run_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
+    run_parser.add_argument(
+        "--hook-type",
+        choices=["pre-commit", "pre-push"],
+        required=True,
+        help="Çalıştırılacak hook türü",
+    )
+    run_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=80,
+        help="Pre-push için minimum kalite skoru (Varsayılan: 80)",
+    )
+
+
+def _register_testing_subparsers(subparsers: Any) -> None:
+    """Registers testing and verification CLI commands."""
     # Subcommand: generate-property-tests (D3)
     prop_parser = subparsers.add_parser(
         "generate-property-tests",
@@ -310,6 +354,36 @@ def cli() -> None:
         help="Maksimum üretilecek property test sayısı (Varsayılan: 15)",
     )
 
+    # Subcommand: mutate (D1)
+    mutate_parser = subparsers.add_parser(
+        "mutate",
+        help="AST Mutasyon Testi ile test paketinin mutant öldürme skorunu ve kör noktalarını analiz eder (D1)",
+        description="Kaynak kodda yapay hatalar (mutantlar) türeterek testlerin bu hataları yakalayıp yakalamadığını ölçer.",
+    )
+    mutate_parser.add_argument("target", nargs="?", default=".", help="Hedef kaynak dosya veya dizin yolu (Varsayılan: '.')")
+    mutate_parser.add_argument("--test-path", default=None, help="Koşulacak spesifik test dosyası veya dizini")
+    mutate_parser.add_argument("--max-mutants", type=int, default=15, help="Test edilecek maksimum mutant sayısı (Varsayılan: 15)")
+    mutate_parser.add_argument("--timeout", type=float, default=8.0, help="Her bir mutant testi için zaman aşımı saniyesi (Varsayılan: 8.0)")
+    mutate_parser.add_argument("--dry-run", action="store_true", default=False, help="Testleri çalıştırmadan yalnızca potansiyel mutantları haritala")
+    mutate_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+    mutate_parser.add_argument("--output", "-o", default=None, help="Sonuç raporunu JSON dosyasına kaydet")
+
+    # Subcommand: bdd (D4)
+    bdd_parser = subparsers.add_parser(
+        "bdd",
+        help="Python testlerinden Given-When-Then BDD/Gherkin senaryoları ve dokümantasyon üretir (D4)",
+        description="Python AST ile testleri analiz ederek standart .feature ve Markdown senaryo kataloğu üretir.",
+    )
+    bdd_parser.add_argument("target", nargs="?", default="tests", help="Taranacak test dizini veya test dosyası (Varsayılan: 'tests')")
+    bdd_parser.add_argument("--feature-dir", "-f", default=None, help="Cucumber/Behave uyumlu .feature dosyalarının kaydedileceği dizin")
+    bdd_parser.add_argument("--output", "-o", default=None, help="Markdown senaryo kataloğunun kaydedileceği dosya (örn: TEST_SCENARIOS.md)")
+    bdd_parser.add_argument("--enrich-llm", action="store_true", default=False, help="LLM ile senaryo başlıklarını ve kullanıcı hikayelerini zenginleştir")
+    bdd_parser.add_argument("--provider", default=None, help="LLM zenginleştirme sağlayıcısı (örn: gemini, openai, ollama)")
+    bdd_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
+
+
+def _register_security_subparsers(subparsers: Any) -> None:
+    """Registers supply-chain, secret leakage, and attack surface CLI commands."""
     # Subcommand: generate-sbom (E4)
     sbom_parser = subparsers.add_parser(
         "generate-sbom",
@@ -378,6 +452,9 @@ def cli() -> None:
         help="Denetlenecek şüpheli paket adı (örn: reqeusts, colorma)",
     )
 
+
+def _register_architecture_subparsers(subparsers: Any) -> None:
+    """Registers architectural metrics, forecasting, and export CLI commands."""
     # Subcommand: check-cycles (F4)
     cycles_parser = subparsers.add_parser(
         "check-cycles",
@@ -402,69 +479,6 @@ def cli() -> None:
     ck_parser.add_argument("--smells-only", action="store_true", default=False, help="Yalnızca mimari kokusu olan sınıfları listele")
     ck_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
     ck_parser.add_argument("--output", "-o", default=None, help="CK metrik raporunu JSON dosyasına kaydet")
-
-    # Subcommand: metrics (G6)
-    metrics_parser = subparsers.add_parser(
-        "metrics",
-        help="WARDEN operasyonel ve kalite metriklerini Prometheus / OpenMetrics formatında çıktılar (G6)",
-        description="Prometheus scraping ve izlenebilirlik için metrikleri plain-text veya JSON formatında sunar.",
-    )
-    metrics_parser.add_argument(
-        "--json",
-        action="store_true",
-        default=False,
-        help="Metrikleri Prometheus exposition yerine JSON formatında çıktılar",
-    )
-
-    # Subcommand: hook (H3)
-    hook_parser = subparsers.add_parser(
-        "hook",
-        help="Git hook (pre-commit & pre-push) kalite kapısı yönetimi (H3)",
-        description="Akıllı git kancalarını kurar, kaldırır veya çalıştırır.",
-    )
-    hook_subparsers = hook_parser.add_subparsers(dest="hook_action", help="Hook eylemi")
-
-    # hook install
-    install_parser = hook_subparsers.add_parser("install", help="Git kancalarını .git/hooks dizinine kurar")
-    install_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
-    install_parser.add_argument(
-        "--hook-type",
-        choices=["pre-commit", "pre-push", "all"],
-        default="all",
-        help="Kurulacak hook türü (Varsayılan: all)",
-    )
-    install_parser.add_argument(
-        "--min-score",
-        type=int,
-        default=80,
-        help="Pre-push için minimum kabul skoru (Varsayılan: 80)",
-    )
-
-    # hook uninstall
-    uninstall_parser = hook_subparsers.add_parser("uninstall", help="Kurulu WARDEN git kancalarını kaldırır")
-    uninstall_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
-    uninstall_parser.add_argument(
-        "--hook-type",
-        choices=["pre-commit", "pre-push", "all"],
-        default="all",
-        help="Kaldırılacak hook türü (Varsayılan: all)",
-    )
-
-    # hook run
-    run_parser = hook_subparsers.add_parser("run", help="Belirtilen git kancasını manuel çalıştırır")
-    run_parser.add_argument("target", nargs="?", default=".", help="Hedef git reposu yolu (Varsayılan: '.')")
-    run_parser.add_argument(
-        "--hook-type",
-        choices=["pre-commit", "pre-push"],
-        required=True,
-        help="Çalıştırılacak hook türü",
-    )
-    run_parser.add_argument(
-        "--min-score",
-        type=int,
-        default=80,
-        help="Pre-push için minimum kalite skoru (Varsayılan: 80)",
-    )
 
     # Subcommand: export-sarif (I4)
     sarif_parser = subparsers.add_parser(
@@ -510,20 +524,6 @@ def cli() -> None:
         help="Kullanılacak LLM sağlayıcısı (gemini, openai, ollama vb.)",
     )
 
-    # Subcommand: mutate (D1)
-    mutate_parser = subparsers.add_parser(
-        "mutate",
-        help="AST Mutasyon Testi ile test paketinin mutant öldürme skorunu ve kör noktalarını analiz eder (D1)",
-        description="Kaynak kodda yapay hatalar (mutantlar) türeterek testlerin bu hataları yakalayıp yakalamadığını ölçer.",
-    )
-    mutate_parser.add_argument("target", nargs="?", default=".", help="Hedef kaynak dosya veya dizin yolu (Varsayılan: '.')")
-    mutate_parser.add_argument("--test-path", default=None, help="Koşulacak spesifik test dosyası veya dizini")
-    mutate_parser.add_argument("--max-mutants", type=int, default=15, help="Test edilecek maksimum mutant sayısı (Varsayılan: 15)")
-    mutate_parser.add_argument("--timeout", type=float, default=8.0, help="Her bir mutant testi için zaman aşımı saniyesi (Varsayılan: 8.0)")
-    mutate_parser.add_argument("--dry-run", action="store_true", default=False, help="Testleri çalıştırmadan yalnızca potansiyel mutantları haritala")
-    mutate_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
-    mutate_parser.add_argument("--output", "-o", default=None, help="Sonuç raporunu JSON dosyasına kaydet")
-
     # Subcommand: classify (C1)
     classify_parser = subparsers.add_parser(
         "classify",
@@ -559,19 +559,6 @@ def cli() -> None:
     anomaly_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
     anomaly_parser.add_argument("--output", "-o", default=None, help="Anomali raporunu JSON dosyasına kaydet")
 
-    # Subcommand: bdd (D4)
-    bdd_parser = subparsers.add_parser(
-        "bdd",
-        help="Python testlerinden Given-When-Then BDD/Gherkin senaryoları ve dokümantasyon üretir (D4)",
-        description="Python AST ile testleri analiz ederek standart .feature ve Markdown senaryo kataloğu üretir.",
-    )
-    bdd_parser.add_argument("target", nargs="?", default="tests", help="Taranacak test dizini veya test dosyası (Varsayılan: 'tests')")
-    bdd_parser.add_argument("--feature-dir", "-f", default=None, help="Cucumber/Behave uyumlu .feature dosyalarının kaydedileceği dizin")
-    bdd_parser.add_argument("--output", "-o", default=None, help="Markdown senaryo kataloğunun kaydedileceği dosya (örn: TEST_SCENARIOS.md)")
-    bdd_parser.add_argument("--enrich-llm", action="store_true", default=False, help="LLM ile senaryo başlıklarını ve kullanıcı hikayelerini zenginleştir")
-    bdd_parser.add_argument("--provider", default=None, help="LLM zenginleştirme sağlayıcısı (örn: gemini, openai, ollama)")
-    bdd_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
-
     # Subcommand: pr-review (G4)
     pr_parser = subparsers.add_parser(
         "pr-review",
@@ -589,12 +576,36 @@ def cli() -> None:
     pr_parser.add_argument("--init-workflow", action="store_true", default=False, help=".github/workflows/warden-pr-review.yml dosyasını oluştur")
     pr_parser.add_argument("--json", action="store_true", default=False, help="Sonuçları JSON formatında yazdır")
 
-    args = parser.parse_args()
 
-    if not args.command:
-        parser.print_help()
-        sys.exit(0)
+def _build_argument_parser() -> Any:
+    """Builds and configures root ArgumentParser with all subcommands."""
+    import argparse
 
+    parser = argparse.ArgumentParser(
+        prog="warden",
+        description="🛡️ WARDEN: Autonomous Security & Architectural Quality Governance Engine",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Örnek Kullanımlar:
+  warden audit .                     # Mevcut dizindeki projeyi denetle
+  warden audit /path/to/repo         # Belirtilen dizindeki projeyi denetle
+  warden audit . --min-score 85      # Skor 85'in altındaysa hata döndür (CI/CD Quality Gate)
+  warden serve --port 8000           # REST API & Swagger UI sunucusunu başlat
+  warden --version                   # Sürüm bilgisini göster
+        """,
+    )
+    parser.add_argument("--version", "-v", action="version", version="WARDEN v0.1.0")
+
+    subparsers = parser.add_subparsers(dest="command", help="Kullanılabilir komutlar")
+    _register_core_subparsers(subparsers)
+    _register_testing_subparsers(subparsers)
+    _register_security_subparsers(subparsers)
+    _register_architecture_subparsers(subparsers)
+    return parser
+
+
+def _dispatch_core_command(args: Any) -> bool:
+    """Dispatches core commands."""
     if args.command == "audit":
         repo_target = args.path if args.path else args.target
         _run_audit_command(
@@ -604,57 +615,29 @@ def cli() -> None:
             incremental=args.incremental,
             since_commit=args.since_commit,
         )
-
-    elif args.command == "serve":
+        return True
+    if args.command == "serve":
         import uvicorn
         uvicorn.run("core.main:app", host=args.host, port=args.port, reload=args.reload)
-
-    elif args.command == "milestone":
+        return True
+    if args.command == "milestone":
         _run_milestone_command(args.audit_id, args.label, args.clear)
-
-    elif args.command == "generate-property-tests":
-        _run_generate_property_tests(args.target, args.output, args.max_tests)
-
-    elif args.command == "generate-sbom":
-        _run_generate_sbom(args.target, args.output)
-
-    elif args.command == "scan-entropy":
-        _run_scan_entropy(args.target, args.max_findings)
-
-    elif args.command == "check-attack-surface":
-        _run_check_attack_surface(args.target, args.top)
-
-    elif args.command == "check-typosquatting":
-        _run_check_typosquatting(args.package_name)
-
-    elif args.command == "check-cycles":
-        _run_check_cycles(args.target)
-
-    elif args.command == "check-ck":
-        _run_check_ck(
-            args.target,
-            top=args.top,
-            smells_only=args.smells_only,
-            as_json=args.json,
-            output_file=args.output,
-        )
-
-    elif args.command == "metrics":
+        return True
+    if args.command == "metrics":
         _run_metrics_command(args.json)
-
-    elif args.command == "hook":
+        return True
+    if args.command == "hook":
         _run_hook_command(args)
+        return True
+    return False
 
-    elif args.command == "export-sarif":
-        _run_export_sarif(args.target, args.output, args.audit_id)
 
-    elif args.command == "export-pdf":
-        _run_export_pdf(args.target, args.output, args.audit_id)
-
-    elif args.command == "query":
-        _run_query_command(args.query, as_json=args.json, provider=args.provider)
-
-    elif args.command == "mutate":
+def _dispatch_testing_command(args: Any) -> bool:
+    """Dispatches testing and verification commands."""
+    if args.command == "generate-property-tests":
+        _run_generate_property_tests(args.target, args.output, args.max_tests)
+        return True
+    if args.command == "mutate":
         _run_mutate_command(
             args.target,
             test_path=args.test_path,
@@ -664,34 +647,8 @@ def cli() -> None:
             as_json=args.json,
             output_file=args.output,
         )
-
-    elif args.command == "classify":
-        _run_classify_command(
-            args.target,
-            show_weights=args.weights,
-            overrides=args.override,
-            as_json=args.json,
-        )
-
-    elif args.command == "forecast":
-        _run_forecast_command(
-            args.target,
-            horizon=args.horizon,
-            dimension=args.dimension,
-            as_json=args.json,
-            output_file=args.output,
-        )
-
-    elif args.command == "anomaly":
-        _run_anomaly_command(
-            args.target,
-            audit_id=args.audit_id,
-            method=args.method,
-            as_json=args.json,
-            output_file=args.output,
-        )
-
-    elif args.command == "bdd":
+        return True
+    if args.command == "bdd":
         _run_bdd_command(
             args.target,
             feature_dir=args.feature_dir,
@@ -700,8 +657,77 @@ def cli() -> None:
             provider=args.provider,
             as_json=args.json,
         )
+        return True
+    return False
 
-    elif args.command == "pr-review":
+
+def _dispatch_security_command(args: Any) -> bool:
+    """Dispatches security and supply-chain commands."""
+    if args.command == "generate-sbom":
+        _run_generate_sbom(args.target, args.output)
+        return True
+    if args.command == "scan-entropy":
+        _run_scan_entropy(args.target, args.max_findings)
+        return True
+    if args.command == "check-attack-surface":
+        _run_check_attack_surface(args.target, args.top)
+        return True
+    if args.command == "check-typosquatting":
+        _run_check_typosquatting(args.package_name)
+        return True
+    return False
+
+
+def _dispatch_architecture_command(args: Any) -> bool:
+    """Dispatches architecture and AI-driven commands."""
+    if args.command == "check-cycles":
+        _run_check_cycles(args.target)
+        return True
+    if args.command == "check-ck":
+        _run_check_ck(
+            args.target,
+            top=args.top,
+            smells_only=args.smells_only,
+            as_json=args.json,
+            output_file=args.output,
+        )
+        return True
+    if args.command == "export-sarif":
+        _run_export_sarif(args.target, args.output, args.audit_id)
+        return True
+    if args.command == "export-pdf":
+        _run_export_pdf(args.target, args.output, args.audit_id)
+        return True
+    if args.command == "query":
+        _run_query_command(args.query, as_json=args.json, provider=args.provider)
+        return True
+    if args.command == "classify":
+        _run_classify_command(
+            args.target,
+            show_weights=args.weights,
+            overrides=args.override,
+            as_json=args.json,
+        )
+        return True
+    if args.command == "forecast":
+        _run_forecast_command(
+            args.target,
+            horizon=args.horizon,
+            dimension=args.dimension,
+            as_json=args.json,
+            output_file=args.output,
+        )
+        return True
+    if args.command == "anomaly":
+        _run_anomaly_command(
+            args.target,
+            audit_id=args.audit_id,
+            method=args.method,
+            as_json=args.json,
+            output_file=args.output,
+        )
+        return True
+    if args.command == "pr-review":
         _run_pr_review_command(
             args.target,
             pr_number=args.pr,
@@ -714,6 +740,38 @@ def cli() -> None:
             init_workflow=args.init_workflow,
             as_json=args.json,
         )
+        return True
+    return False
+
+
+def _dispatch_cli(args: Any) -> None:
+    """Dispatches parsed CLI command to the appropriate category handler."""
+    if _dispatch_core_command(args):
+        return
+    if _dispatch_testing_command(args):
+        return
+    if _dispatch_security_command(args):
+        return
+    _dispatch_architecture_command(args)
+
+
+def cli() -> None:
+    """Main CLI entry point for WARDEN."""
+    import sys
+
+    _ensure_venv_path()
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    parser = _build_argument_parser()
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    _dispatch_cli(args)
 
 
 

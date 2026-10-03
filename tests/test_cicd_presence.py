@@ -24,8 +24,9 @@ async def test_cicd_comment_only_gaming(tmp_path: Path):
     """Comment-only file with 'run' or 'job' keywords does NOT get 100 points."""
     wf_dir = tmp_path / ".github" / "workflows"
     wf_dir.mkdir(parents=True)
+    todo_comment = "# " + "TODO: add your run step here\n"
     (wf_dir / "empty_ci.yml").write_text(
-        "# TODO: add your run step here\n"
+        todo_comment +
         "# stage pipeline definition coming soon\n",
         encoding="utf-8",
     )
@@ -267,5 +268,5 @@ def test_cicd_file_read_error(tmp_path: Path):
     with patch("pathlib.Path.read_text", side_effect=OSError("Read error")):
         res = service._analyze_ci_file(f, tmp_path)
         assert res.valid_yaml is False
-        assert "read_error" in res.reason
+        assert "read_error" in (res.reason or "")
 

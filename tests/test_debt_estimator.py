@@ -30,7 +30,7 @@ class TestTechDebtEstimator:
             TodoMarker(file="auth.py", line=42, marker="FIXME", text="Security token expiration"),
             TodoMarker(file="utils.py", line=105, marker="HACK", text="Temporary workaround"),
         ]
-        # FIXME=1.0, HACK=1.5, TODO=0.5 -> Total 3.0 hours
+        # Breakdown: fixme=1.0, hack=1.5, todo=0.5 -> Total 3.0 hours
         est = self.estimator.estimate(todo_markers=markers)
         assert est.markers_hours == 3.0
         assert est.total_hours == 3.0

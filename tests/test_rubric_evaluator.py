@@ -121,7 +121,7 @@ async def test_evaluate_with_mocked_gemini_client(monkeypatch):
         verdict = await evaluator.evaluate("llm_integration", evidence)
         assert verdict.evaluated is True
         assert verdict.level == 9
-        assert "Verified comprehensive" in verdict.justification
+        assert "Verified comprehensive" in (verdict.justification or "")
         assert verdict.citation_warning is None
 
         assert len(evaluator.audit_log) == 1

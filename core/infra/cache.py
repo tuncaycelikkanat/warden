@@ -19,7 +19,7 @@ class BaseCache(ABC):
         """Retrieves a cached value by key."""
 
     @abstractmethod
-    def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> None:
+    def set(self, key: str, value: Any, ttl_seconds: float = 3600) -> None:
         """Stores a value with a time-to-live in seconds."""
 
     @abstractmethod
@@ -49,7 +49,7 @@ class InMemoryCache(BaseCache):
                 return None
             return val
 
-    def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> None:
+    def set(self, key: str, value: Any, ttl_seconds: float = 3600) -> None:
         expires_at = time.time() + ttl_seconds
         with self._lock:
             self._store[key] = (value, expires_at)
@@ -95,13 +95,13 @@ class RedisCache(BaseCache):
         except Exception:
             return self._fallback.get(key)
 
-    def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> None:
+    def set(self, key: str, value: Any, ttl_seconds: float = 3600) -> None:
         if not self._connected:
             self._fallback.set(key, value, ttl_seconds)
             return
         try:
             serialized = json.dumps(value)
-            self._client.setex(key, ttl_seconds, serialized)
+            self._client.setex(key, int(ttl_seconds), serialized)
         except Exception:
             self._fallback.set(key, value, ttl_seconds)
 

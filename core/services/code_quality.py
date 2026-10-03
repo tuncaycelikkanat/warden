@@ -67,13 +67,15 @@ class CodeComplexityService:
     def _run_radon(self, repo_path: Path) -> str:
         """Executes radon subprocess with centralized exclusions and timeout."""
         cmd_prefix = self._resolve_radon_cmd(repo_path)
+        safe_bin = shutil.which(cmd_prefix[0]) or cmd_prefix[0]
         ignore_dirs = ",".join(get_scan_exclusions(repo_path))
         exclude_globs = "*dummy_*,*_pb2.py,*.g.py"
 
         cmd = [
-            *cmd_prefix,
+            safe_bin,
+            *cmd_prefix[1:],
             "cc",
-            str(repo_path),
+            str(repo_path.resolve()),
             "--json",
             "-a",
             "-i",
@@ -307,12 +309,14 @@ class LintStyleService:
         exclude_arg = ",".join(exclusions)
 
         baseline_config = Path(__file__).resolve().parent.parent / "rules" / "ruff_baseline.toml"
+        resolved_repo = str(repo_path.resolve())
 
         def run_ruff_scans() -> tuple[bool, str, list[dict[str, Any]], list[dict[str, Any]]]:
             # Run 1: Project-scoped scan
-            cmd1 = list(ruff_base) + [
+            safe_bin = shutil.which(ruff_base[0]) or ruff_base[0]
+            cmd1 = [safe_bin, *ruff_base[1:]] + [
                 "check",
-                str(repo_path),
+                resolved_repo,
                 "--output-format=json",
                 f"--exclude={exclude_arg}",
             ]
@@ -325,9 +329,9 @@ class LintStyleService:
                 return False, f"project_scan_error: {e}", [], []
 
             # Run 2: WARDEN Baseline scan
-            cmd2 = list(ruff_base) + [
+            cmd2 = [safe_bin, *ruff_base[1:]] + [
                 "check",
-                str(repo_path),
+                resolved_repo,
                 "--output-format=json",
                 f"--exclude={exclude_arg}",
             ]

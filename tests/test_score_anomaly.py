@@ -33,6 +33,7 @@ class TestMahalanobisMathematics:
         detector.fit(data)
 
         mean_vec = detector.mean_vector
+        assert mean_vec is not None
         d_sq, p_val, contribs = detector.evaluate(mean_vec)
 
         # Distance at exact mean should be practically 0

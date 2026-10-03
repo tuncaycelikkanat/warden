@@ -44,7 +44,7 @@ class SandboxedTestExecutor:
 
         try:
             res = subprocess.run(
-                ["docker", "info"],
+                [docker_bin, "info"],
                 capture_output=True,
                 timeout=2,
                 check=False,
@@ -52,7 +52,7 @@ class SandboxedTestExecutor:
             if res.returncode == 0:
                 # Check if test runner image exists
                 img_check = subprocess.run(
-                    ["docker", "image", "inspect", self.docker_image],
+                    [docker_bin, "image", "inspect", self.docker_image],
                     capture_output=True,
                     timeout=2,
                     check=False,
@@ -113,8 +113,9 @@ class SandboxedTestExecutor:
     ) -> SandboxedRunResult:
         """Executes test command inside a hardened Docker container."""
         abs_cwd = str(cwd.resolve())
+        docker_bin = shutil.which("docker") or "/usr/bin/docker"
         docker_cmd = [
-            "docker", "run", "--rm",
+            docker_bin, "run", "--rm",
             "--network=none",
             "--memory=512m",
             "--cpus=1.0",
@@ -175,6 +176,18 @@ class SandboxedTestExecutor:
         timeout_sec: int,
     ) -> SandboxedRunResult:
         """Executes command with process limits and strict timeout on host."""
+        if not cmd:
+            return SandboxedRunResult(
+                exit_code=-1,
+                stdout="",
+                stderr="Empty command provided",
+                timed_out=False,
+                isolation_level="os_limits",
+            )
+
+        resolved_bin = shutil.which(cmd[0]) or cmd[0]
+        safe_cmd = [resolved_bin, *cmd[1:]]
+
         run_env = os.environ.copy()
         if env:
             run_env.update(env)
@@ -190,7 +203,7 @@ class SandboxedTestExecutor:
 
         try:
             res = subprocess.run(
-                cmd,
+                safe_cmd,
                 cwd=str(cwd),
                 env=run_env,
                 capture_output=True,

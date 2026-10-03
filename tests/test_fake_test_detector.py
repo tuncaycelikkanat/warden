@@ -21,6 +21,7 @@ def test_tautology():
 """
         tree = ast.parse(code)
         func = tree.body[0]
+        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
         findings = detector.analyze_function(func, "test_file.py", code.splitlines())
         assert len(findings) == 1
         assert findings[0].fake_type == "TAUTOLOGY"
@@ -34,6 +35,7 @@ def test_length():
 """
         tree = ast.parse(code)
         func = tree.body[0]
+        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
         findings = detector.analyze_function(func, "test_file.py", code.splitlines())
         assert len(findings) == 1
         assert findings[0].fake_type == "TAUTOLOGY"
@@ -48,6 +50,7 @@ def test_mock_call():
 """
         tree = ast.parse(code)
         func = tree.body[0]
+        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
         findings = detector.analyze_function(func, "test_file.py", code.splitlines())
         assert len(findings) == 1
         assert findings[0].fake_type == "UNINVOKED_MOCK_ASSERTION"
@@ -60,6 +63,7 @@ def test_nothing():
 """
         tree = ast.parse(code)
         func = tree.body[0]
+        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
         findings = detector.analyze_function(func, "test_file.py", code.splitlines())
         assert len(findings) == 1
         assert findings[0].fake_type == "NO_ASSERTION"
@@ -74,6 +78,7 @@ def test_legit():
 """
         tree = ast.parse(code)
         func = tree.body[0]
+        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
         findings = detector.analyze_function(func, "test_file.py", code.splitlines())
         assert len(findings) == 0
 

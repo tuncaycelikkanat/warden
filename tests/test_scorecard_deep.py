@@ -1,6 +1,7 @@
 """Comprehensive unit tests for ScorecardAggregatorService edge cases and dataclass handling."""
 
 from dataclasses import dataclass
+from typing import Any
 
 from core.services.scorecard import ScorecardAggregatorService
 
@@ -23,8 +24,8 @@ class DummyTodoMarker:
 class DummyTechDebtResult:
     measured: bool = True
     total_commits_in_window: int = 10
-    churn_entries: list = None
-    todo_markers: list = None
+    churn_entries: list[Any] | None = None
+    todo_markers: list[Any] | None = None
 
 
 @dataclass
@@ -39,7 +40,7 @@ class DummyResilienceDefect:
 @dataclass
 class DummyResilienceResult:
     measured: bool = True
-    defects: list = None
+    defects: list[Any] | None = None
     file_count: int = 5
 
 

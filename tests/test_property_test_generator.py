@@ -21,6 +21,7 @@ class TestPropertyTestGenerator:
         """Test primitive type annotation mapping."""
         tree = ast.parse("def f(a: int, b: float, c: str, d: bool): pass")
         func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
         args = func_def.args.args
 
         strat_int = self.generator._type_annotation_to_strategy(args[0].annotation, args[0].arg)
@@ -39,6 +40,7 @@ class TestPropertyTestGenerator:
         """Test container type annotation mapping (list, dict)."""
         tree = ast.parse("def f(items: list[int], mapping: dict[str, int]): pass")
         func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
         args = func_def.args.args
 
         strat_list = self.generator._type_annotation_to_strategy(args[0].annotation, args[0].arg)
@@ -66,6 +68,7 @@ class TestPropertyTestGenerator:
         """Test property test generation for idempotent function naming."""
         tree = ast.parse("def normalize_text(text: str) -> str: return text.strip()")
         func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
 
         template = self.generator.analyze_function(func_def, "sample_module", "sample.py")
         assert template is not None
@@ -79,6 +82,7 @@ class TestPropertyTestGenerator:
         """Test property test generation for bounded invariant naming."""
         tree = ast.parse("def calculate_score(weight: float) -> float: return weight * 10")
         func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
 
         template = self.generator.analyze_function(func_def, "sample_module", "sample.py")
         assert template is not None
@@ -89,6 +93,7 @@ class TestPropertyTestGenerator:
         """Test property test generation for general function invariant."""
         tree = ast.parse("def transform_payload(data: str) -> dict: return {}")
         func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
 
         template = self.generator.analyze_function(func_def, "sample_module", "sample.py")
         assert template is not None

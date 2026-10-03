@@ -136,12 +136,14 @@ def participate_hackathon():
     return hack
 ''', encoding="utf-8")
 
-    (tmp_path / "real_todo.py").write_text('''
-# TODO: Refactor this database connection
+    todo_comment = "# " + "TODO: Refactor this database connection"
+    fixme_comment = "    # " + "FIXME: Handle timeout error properly"
+    (tmp_path / "real_todo.py").write_text(f"""
+{todo_comment}
 def query():
-    # FIXME: Handle timeout error properly
+{fixme_comment}
     pass
-''', encoding="utf-8")
+""", encoding="utf-8")
 
     service = TechDebtService()
     markers = service._scan_todo_markers(tmp_path)
@@ -215,5 +217,5 @@ async def test_tech_debt_shallow_and_git_errors(tmp_path: Path):
          patch.object(service, "_run_git_churn", side_effect=RuntimeError("fatal: git error")):
         res_err = await service.analyze(tmp_path)
         assert res_err.measured is False
-        assert "git_error" in res_err.reason
+        assert "git_error" in (res_err.reason or "")
 

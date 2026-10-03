@@ -4,6 +4,7 @@ import dataclasses
 import uuid
 from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -140,10 +141,12 @@ def test_save_to_db_and_get_comparison_report(tmp_path):
     assert id1 > 0
 
     # 2. Save second report
-    data2 = dict(data)
-    data2["scorecard"] = dict(data["scorecard"])
-    data2["scorecard"]["total_score"] = 92
-    data2["scorecard"]["grade"] = "A"
+    import copy
+    data2: dict[str, Any] = copy.deepcopy(data)
+    sc2: dict[str, Any] = dict(data2["scorecard"])
+    sc2["total_score"] = 92
+    sc2["grade"] = "A"
+    data2["scorecard"] = sc2
     id2 = svc.save_to_db(repo_str, data2)
     assert id2 > id1
 
@@ -155,6 +158,7 @@ def test_save_to_db_and_get_comparison_report(tmp_path):
     # Mark id1 as milestone
     with Session(engine) as session:
         rep1 = session.exec(select(AuditReport).where(AuditReport.id == id1)).first()
+        assert rep1 is not None
         rep1.is_milestone = True
         rep1.milestone_label = "v1-baseline"
         session.add(rep1)

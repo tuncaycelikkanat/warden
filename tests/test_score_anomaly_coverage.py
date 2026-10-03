@@ -147,6 +147,7 @@ class TestScoreAnomalyCoverage:
             session.commit()
             session.refresh(audit)
             audit_id = audit.id
+            assert audit_id is not None
 
         service = ScoreAnomalyService(db_path=test_db)
 

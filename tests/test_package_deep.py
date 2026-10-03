@@ -28,6 +28,7 @@ async def test_get_pypi_metadata_and_stats_mocked():
     )
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=resp_200):
         data = await svc.get_pypi_metadata("mypkg")
+        assert data is not None
         assert data["info"]["name"] == "mypkg"
 
         # Cached call
@@ -47,6 +48,7 @@ async def test_get_pypi_metadata_and_stats_mocked():
     # 4. Network error
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=httpx.ConnectError("Connection failed")):
         net_err = await svc.get_pypi_metadata("offline_pkg")
+        assert net_err is not None
         assert net_err.get("_network_error") is True
 
     # 5. Stats 200

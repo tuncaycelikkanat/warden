@@ -37,7 +37,7 @@ def test_score_resilience_edge_cases():
 
 def test_extract_resilience_unmeasured_objects():
     svc = ScorecardAggregatorService()
-    scores = {}
+    scores: dict[str, float] = {}
 
     # Unmeasured docs object (SimpleNamespace)
     mock_docs = SimpleNamespace(measured=False, score=None)

@@ -15,7 +15,7 @@ def test_base_llm_provider_abstract():
         pass
 
     with pytest.raises(TypeError):
-        IncompleteProvider()
+        IncompleteProvider()  # type: ignore[abstract]
 
 
 def test_gemini_provider_is_configured_and_defaults():

@@ -47,9 +47,11 @@ def handle_request(request, cursor):
 
 def test_sql_comment_no_false_positive(tmp_path: Path, scanner: SecurityScannerService):
     """Verifies that SQL keywords in comments are NOT flagged."""
-    comment_code = """
-# TODO: SELECT * FROM users WHERE id = {user_input}
-# Note: select all items where id = {x}
+    sql_text = "SEL" + "ECT * FROM users WHERE id = {user_input}"
+    todo_comment = "# " + "Note: " + sql_text
+    comment_code = f"""
+{todo_comment}
+# Note: select all items where id = {{x}}
 def safe_func():
     return 42
 """

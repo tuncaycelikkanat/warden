@@ -1,6 +1,7 @@
 """Git diff analysis service for incremental audits in WARDEN."""
 
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,12 +30,13 @@ class GitDiffAnalyzer:
         """
         repo_path = repo_path.resolve()
         changed: set[Path] = set()
+        git_bin = shutil.which("git") or "git"
 
         if since_commit:
-            cmd = ["git", "diff", "--name-only", "--diff-filter=d", since_commit, "HEAD"]
+            cmd = [git_bin, "diff", "--name-only", "--diff-filter=d", since_commit, "HEAD"]
         else:
             # Staged and unstaged changes against HEAD
-            cmd = ["git", "diff", "--name-only", "--diff-filter=d", "HEAD"]
+            cmd = [git_bin, "diff", "--name-only", "--diff-filter=d", "HEAD"]
 
         try:
             res = subprocess.run(
@@ -58,7 +60,7 @@ class GitDiffAnalyzer:
         if include_untracked:
             try:
                 untracked_res = subprocess.run(
-                    ["git", "ls-files", "--others", "--exclude-standard"],
+                    [git_bin, "ls-files", "--others", "--exclude-standard"],
                     cwd=str(repo_path),
                     capture_output=True,
                     text=True,
@@ -82,10 +84,11 @@ class GitDiffAnalyzer:
         """
         repo_path = repo_path.resolve()
         staged: set[Path] = set()
+        git_bin = shutil.which("git") or "git"
 
         try:
             res = subprocess.run(
-                ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
+                [git_bin, "diff", "--cached", "--name-only", "--diff-filter=d"],
                 cwd=str(repo_path),
                 capture_output=True,
                 text=True,

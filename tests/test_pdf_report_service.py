@@ -1,6 +1,7 @@
 """Unit tests for PdfReportService executive summary generation."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -85,6 +86,6 @@ class TestPdfReportService:
 
     def test_generate_pdf_sparse_data(self, pdf_service: PdfReportService) -> None:
         # Handles minimal dictionary without crashing
-        sparse = {}
+        sparse: dict[str, Any] = {}
         pdf_bytes = pdf_service.generate_pdf_bytes(sparse, "unknown_repo")
         assert pdf_bytes.startswith(b"%PDF-")

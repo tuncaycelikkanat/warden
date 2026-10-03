@@ -67,8 +67,9 @@ class TypeSafetyService:
             extra=["fixtures", "test_data", "tests/fixtures", "tests/test_data", "dummy_"],
         )
 
-        cmd = list(mypy_base) + [
-            str(repo_path),
+        safe_bin = shutil.which(mypy_base[0]) or mypy_base[0]
+        cmd = [safe_bin, *mypy_base[1:]] + [
+            str(repo_path.resolve()),
             "--no-error-summary",
             "--ignore-missing-imports",
             "--check-untyped-defs",

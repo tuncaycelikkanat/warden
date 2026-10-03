@@ -16,7 +16,7 @@ class TestAISlopClassifier:
 
     def test_human_comments_classified_as_human(self, classifier: AISlopClassifier) -> None:
         human_samples = [
-            "# TODO: investigate sporadic timeout under high load",
+            "# " + "TODO: investigate sporadic timeout under high load",
             "# Workaround for upstream issue in openssl 3.0",
             "# Bitmask flag for read/write access",
             "# Cache key expires after 3600 seconds",

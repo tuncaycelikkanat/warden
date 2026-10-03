@@ -34,6 +34,7 @@ def test_hierarchical_scorecard_calculation():
     assert ms["resilience_ast"] == 100
 
     gs = result.group_scores
+    assert gs is not None
     # Check security_supply_chain
     # weights: sec: 7/16, leak: 4/16, dep: 4/16. missing license (1/16)
     # total weight = 15/16
@@ -63,6 +64,7 @@ def test_all_100_yields_100():
     assert result.layer1_score == 100
     assert result.total_score == 100
     assert result.grade == "A+"
+    assert result.group_scores is not None
     for g_score in result.group_scores.values():
         assert g_score == 100.0
 
@@ -85,5 +87,6 @@ def test_unmeasured_category_redistributes_weight():
     }
     result = service.calculate(data, [])
     # group score for code_health_test should be 100.0, not penalized for missing coverage
+    assert result.group_scores is not None
     assert result.group_scores["code_health_test"] == 100.0
 

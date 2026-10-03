@@ -129,12 +129,14 @@ def test_run_milestone_command_set_and_clear(tmp_path):
         session.commit()
         session.refresh(rep)
         rep_id = rep.id
+        assert rep_id is not None
 
     # Set milestone
     _run_milestone_command(audit_id=rep_id, label="v1.0-release", clear=False)
 
     with Session(engine) as session:
         rep_after = session.exec(select(AuditReport).where(AuditReport.id == rep_id)).first()
+        assert rep_after is not None
         assert rep_after.is_milestone is True
         assert rep_after.milestone_label == "v1.0-release"
 
@@ -143,6 +145,7 @@ def test_run_milestone_command_set_and_clear(tmp_path):
 
     with Session(engine) as session:
         rep_cleared = session.exec(select(AuditReport).where(AuditReport.id == rep_id)).first()
+        assert rep_cleared is not None
         assert rep_cleared.is_milestone is False
         assert rep_cleared.milestone_label is None
 
