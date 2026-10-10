@@ -96,7 +96,7 @@ class AuditReportService:
                             member_weight = m.weight
                             break
                 member = AuditCoreMember(
-                    report_id=report.id,
+                    report_id=int(report.id or 0),
                     group_key=group_key,
                     member_key=key,
                     member_label=member_label,

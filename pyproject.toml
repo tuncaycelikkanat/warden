@@ -3,11 +3,41 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "warden"
+name = "warden-audit"
 version = "0.1.0"
-description = "Autonomous Security & Architectural Quality Governance Engine"
+description = "Autonomous Security, Code Quality & Vibe-Coding Governance Engine — catches AI slop, secrets, bare excepts, missing timeouts & supply-chain risks"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Tuncay Celikkanat", email = "tuncaycelikkanat@users.noreply.github.com" }
+]
+keywords = [
+    "ai-code-review",
+    "vibe-coding",
+    "code-quality",
+    "security",
+    "llm",
+    "static-analysis",
+    "devsecops",
+    "audit",
+    "mcp",
+    "governance",
+    "ai-slop",
+    "code-governance",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
@@ -16,7 +46,7 @@ dependencies = [
     "google-genai>=0.1.0",
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2.0.0",
     "semgrep>=1.60.0",
     "radon>=6.0.0",
     "ruff>=0.5.0",
@@ -32,7 +62,14 @@ dependencies = [
     "scikit-learn>=1.9.1",
     "networkx>=3.6.1",
     "reportlab>=5.0.1",
+    "watchdog>=6.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/tuncaycelikkanat/warden"
+Repository = "https://github.com/tuncaycelikkanat/warden"
+"Bug Tracker" = "https://github.com/tuncaycelikkanat/warden/issues"
+Documentation = "https://github.com/tuncaycelikkanat/warden/tree/master/docs"
 
 [project.scripts]
 warden = "core.main:cli"
@@ -40,11 +77,21 @@ warden = "core.main:cli"
 [tool.hatch.build.targets.wheel]
 packages = ["core", "mcp_server"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/core",
+    "/mcp_server",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 norecursedirs = ["fixtures", "tests/fixtures", ".venv"]
 
 [dependency-groups]
 dev = [
     "hypothesis>=6.168.3",
+    "build>=1.2.0",
+    "twine>=5.0.0",
 ]
-

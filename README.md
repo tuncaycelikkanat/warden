@@ -163,7 +163,15 @@ Running `warden audit --path . --min-score 75` generates an executive scorecard:
 
 ## 🚀 Quick Start
 
-### 1. Automated Installation (Linux / macOS)
+### ⚡ Instant Install via PyPI
+```bash
+pip install warden-audit
+
+# or using uv
+uv tool install warden-audit
+```
+
+### 1. Automated Installation from Source (Linux / macOS)
 The fastest way to install WARDEN and its system scanners:
 ```bash
 git clone https://github.com/tuncaycelikkanat/warden.git
@@ -218,11 +226,19 @@ WARDEN provides 20+ specialized CLI commands grouped into 4 functional domains:
 | :--- | :--- | :--- |
 | `audit` | `[target] [--path <p>] [--min-score <s>] [--incremental] [--since-commit <c>] [--full-history]` | Runs full dual-layer audit, evaluates quality gates, generates reports. |
 | `serve` | `[--host 0.0.0.0] [--port 8000] [--reload]` | Boots FastAPI REST API, Swagger UI (`/docs`), and web dashboard. |
+| `watch` | `[target] [--min-score <s>] [--debounce 0.8]` | Continuous real-time audit watcher; triggers instant delta scorecard on file save. |
+| `badge` | `[--score <s>] [--grade <g>] [--label <l>] [-o <file>]` | Generates shields.io-compatible vector SVG badge for README score display. |
 | `milestone`| `<audit_id> [--label <text>] [--clear]` | Tags an audit report in the DB as a reference baseline for future regressions. |
 | `metrics` | `[--json]` | Exports Prometheus OpenMetrics exposition or JSON operational metrics. |
 | `hook` | `install\|uninstall\|run [--hook-type pre-commit\|pre-push\|all] [--min-score 80]` | Manages local Git hooks to block subpar commits/pushes before they reach origin. |
 
 ```bash
+# Continuous real-time live audit on code edits
+warden watch . --min-score 80
+
+# Generate SVG vector badge for README
+warden badge --score 95 --grade A+ -o warden-score.svg
+
 # Tag audit #42 as milestone release v1.0.0
 warden milestone 42 --label "v1.0.0-release"
 
@@ -651,7 +667,15 @@ Katman 2, yapay zekayı yüzeysel yönlendirmelerle değil; **7 bağımsız kan�
 
 ## 🚀 Hızlı Başlangıç
 
-### 1. Tek Komutla Otomatik Kurulum (Linux & macOS)
+### ⚡ PyPI Üzerinden Anında Kurulum
+```bash
+pip install warden-audit
+
+# veya uv ile
+uv tool install warden-audit
+```
+
+### 1. Kaynak Koddan Otomatik Kurulum (Linux & macOS)
 ```bash
 git clone https://github.com/tuncaycelikkanat/warden.git
 cd warden
@@ -705,11 +729,19 @@ WARDEN, 4 ana alana ayrılmış 20'den fazla gelişmiş CLI komutuna sahiptir:
 | :--- | :--- | :--- |
 | `audit` | `[target] [--path <p>] [--min-score <s>] [--incremental] [--since-commit <c>] [--full-history]` | Tam denetim koşturur, kalite kapısını doğrular ve rapor üretir. |
 | `serve` | `[--host 0.0.0.0] [--port 8000] [--reload]` | FastAPI REST API, Swagger UI (`/docs`) ve dashboard sunucusunu başlatır. |
+| `watch` | `[target] [--min-score <s>] [--debounce 0.8]` | Dosya kayıtlarını gerçek zamanlı izler; her kayıtta anlık skor deltası ve karne basar. |
+| `badge` | `[--score <s>] [--grade <g>] [--label <l>] [-o <dosya>]` | README için shields.io uyumlu vektörel SVG skor rozeti üretir. |
 | `milestone`| `<audit_id> [--label <text>] [--clear]` | Bir raporu veritabanında referans taban çizgisi (baseline) olarak etiketler. |
 | `metrics` | `[--json]` | Prometheus OpenMetrics formatında veya JSON operasyonel metrik basar. |
 | `hook` | `install\|uninstall\|run [--hook-type pre-commit\|pre-push\|all] [--min-score 80]` | Git kancalarını yönetir, hatalı commit veya push'ları yerel ortamda engeller. |
 
 ```bash
+# Kod yazarken anlık canlı denetim ve regresyon izleyici
+warden watch . --min-score 80
+
+# README için dinamik vektörel SVG rozeti oluştur
+warden badge --score 95 --grade A+ -o warden-score.svg
+
 # #42 numaralı denetimi v1.0.0 kilometre taşı olarak işaretle
 warden milestone 42 --label "v1.0.0-release"
 

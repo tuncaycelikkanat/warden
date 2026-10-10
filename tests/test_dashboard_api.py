@@ -1,6 +1,6 @@
 """Comprehensive unit and integration tests for WARDEN Dashboard API endpoints."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -39,7 +39,7 @@ def test_dashboard_repos_and_trend_flow():
             group_resilience=80.0,
             group_dev_hygiene=90.0,
             raw_data={"test": "data_1"},
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
         )
         rep2 = AuditReport(
             repo_path="/test/repo/alpha",
@@ -63,7 +63,7 @@ def test_dashboard_repos_and_trend_flow():
                     }
                 ]
             },
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
         )
         session.add(rep1)
         session.add(rep2)

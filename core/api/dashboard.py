@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlmodel import Session, select
 
 from core.infra.database import engine
@@ -554,6 +554,44 @@ async def get_ck_metrics(
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"CK metrikleri hesaplanırken hata: {exc}") from exc
+
+
+@router.get("/badge")
+async def get_badge(
+    repo_path: str | None = Query(default=None, description="Spesifik bir repo yolu için son skoru getir"),
+    score: float | None = Query(default=None, ge=0, le=100, description="Doğrudan skor belirt"),
+    grade: str | None = Query(default=None, description="Doğrudan harf notu belirt (A+, A, B, C, D, F)"),
+    label: str = Query(default="WARDEN", description="Rozetin sol tarafındaki etiket"),
+) -> Response:
+    """Generates a dynamic shields.io-compatible vector SVG badge for README markdown."""
+    from fastapi import Response
+
+    from core.services.badge_service import BadgeGeneratorService
+
+    badge_score = score
+    badge_grade = grade
+
+    # If score not manually overridden, query latest report from DB
+    if badge_score is None and badge_grade is None:
+        with Session(engine) as session:
+            query = select(AuditReport).order_by(AuditReport.id.desc())  # type: ignore[union-attr]
+            if repo_path:
+                query = query.where(AuditReport.repo_path == repo_path)
+            latest = session.exec(query).first()
+            if latest:
+                badge_score = latest.total_score
+                badge_grade = latest.grade
+
+    svg_data = BadgeGeneratorService.generate_svg(
+        label=label,
+        score=badge_score,
+        grade=badge_grade,
+    )
+    return Response(
+        content=svg_data,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"},
+    )
 
 
 

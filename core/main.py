@@ -80,6 +80,19 @@ async def get_prometheus_metrics():
     return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
+@app.get("/badge.svg", response_class=Response, include_in_schema=False)
+@app.get("/api/v1/badge", response_class=Response)
+async def root_badge(
+    repo_path: str | None = None,
+    score: float | None = None,
+    grade: str | None = None,
+    label: str = "WARDEN",
+) -> Response:
+    """Dynamic SVG badge generation endpoint for README integration."""
+    from core.api.dashboard import get_badge
+    return await get_badge(repo_path=repo_path, score=score, grade=grade, label=label)
+
+
 # Dashboard frontend (React/Vite build output) — sadece build varsa serve et
 _dashboard_dist = Path(__file__).parent.parent / "dashboard" / "dist"
 if _dashboard_dist.exists():
@@ -325,6 +338,27 @@ def _register_core_subparsers(subparsers: Any) -> None:
         default=80,
         help="Pre-push için minimum kalite skoru (Varsayılan: 80)",
     )
+
+    # Subcommand: watch
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Dosya değişikliklerini sürekli izleyerek gerçek zamanlı anlık denetim yapar",
+        description="Kod tabanındaki dosya kayıtlarını otomatik yakalayarak anlık skor deltası ve kalite karnesi üretir.",
+    )
+    watch_parser.add_argument("target", nargs="?", default=".", help="İzlenecek proje dizini (Varsayılan: '.')")
+    watch_parser.add_argument("--min-score", type=int, default=None, help="Kalite kapısı minimum skor eşiği")
+    watch_parser.add_argument("--debounce", type=float, default=0.8, help="Kaydetme sonrası bekleme süresi saniye (Varsayılan: 0.8)")
+
+    # Subcommand: badge
+    badge_parser = subparsers.add_parser(
+        "badge",
+        help="README için shields.io uyumlu dinamik SVG skor rozeti üretir",
+        description="Veritabanındaki son audit skorundan veya belirtilen skordan README için vektörel SVG rozet üretir.",
+    )
+    badge_parser.add_argument("--score", type=float, default=None, help="Doğrudan skor belirt (örn: 95.0)")
+    badge_parser.add_argument("--grade", default=None, help="Doğrudan not belirt (örn: A+)")
+    badge_parser.add_argument("--label", default="WARDEN", help="Rozet sol etiket metni")
+    badge_parser.add_argument("--output", "-o", default=None, help="SVG dosyasının kaydedileceği yol (Varsayılan: warden-score.svg)")
 
 
 def _register_testing_subparsers(subparsers: Any) -> None:
@@ -628,6 +662,12 @@ def _dispatch_core_command(args: Any) -> bool:
         return True
     if args.command == "hook":
         _run_hook_command(args)
+        return True
+    if args.command == "watch":
+        _run_watch_command(args.target, args.min_score, args.debounce)
+        return True
+    if args.command == "badge":
+        _run_badge_command(args.score, args.grade, args.label, args.output)
         return True
     return False
 
@@ -1425,6 +1465,52 @@ def _run_hook_command(args) -> None:
             print(msg)
             if not passed:
                 sys.exit(1)
+
+
+def _run_watch_command(target: str, min_score: int | None = None, debounce: float = 0.8) -> None:
+    """Runs continuous real-time filesystem watcher for immediate audit feedback."""
+    from pathlib import Path
+
+    from core.services.watcher import LiveWatcherService
+
+    p = Path(target).resolve()
+    watcher = LiveWatcherService(
+        target_path=p,
+        min_score=min_score,
+        debounce_seconds=debounce,
+    )
+    watcher.start()
+
+
+def _run_badge_command(score: float | None, grade: str | None, label: str, output: str | None) -> None:
+    """Generates an SVG vector badge and saves to file."""
+    from pathlib import Path
+
+    from sqlmodel import Session, select
+
+    from core.infra.database import create_db_and_tables, engine
+    from core.models.audit import AuditReport
+    from core.services.badge_service import BadgeGeneratorService
+
+    badge_score = score
+    badge_grade = grade
+
+    if badge_score is None and badge_grade is None:
+        create_db_and_tables()
+        with Session(engine) as session:
+            latest = session.exec(select(AuditReport).order_by(AuditReport.id.desc())).first()  # type: ignore[union-attr]
+            if latest:
+                badge_score = latest.total_score
+                badge_grade = latest.grade
+
+    svg_content = BadgeGeneratorService.generate_svg(label=label, score=badge_score, grade=badge_grade)
+    out_file = output or "warden-score.svg"
+    out_path = Path(out_file).resolve()
+    out_path.write_text(svg_content, encoding="utf-8")
+    print(f"[✓] Vektörel SVG rozeti kaydedildi: {out_path}")
+    val = f"{int(badge_score)}/100 ({badge_grade})" if badge_score is not None else (badge_grade or "Verified")
+    print(f"    Rozet Metni: {label} | {val}")
+    print(f"    Markdown Kullanımı: [![{label}]({out_file})](https://github.com/tuncaycelikkanat/warden)")
 
 
 def _run_metrics_command(as_json: bool = False) -> None:
