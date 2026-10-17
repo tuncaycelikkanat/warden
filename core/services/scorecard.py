@@ -292,8 +292,8 @@ class ScorecardAggregatorService:
             cov = data.get("coverage")
             if isinstance(cov, dict):
                 cov = cov.get("percent_covered", cov.get("coverage", cov.get("score")))
-            elif hasattr(cov, "percent_covered"):
-                cov = cov.percent_covered
+            elif cov is not None and hasattr(cov, "percent_covered"):
+                cov = getattr(cov, "percent_covered", None)
             if cov is not None:
                 try:
                     scores["test_coverage"] = max(0.0, min(100.0, round((float(cov) / 80.0) * 100.0, 1)))
