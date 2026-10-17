@@ -290,8 +290,15 @@ class ScorecardAggregatorService:
         """Derives code health, test coverage, and complexity scores."""
         if "coverage" in data and "test_coverage" not in scores:
             cov = data.get("coverage")
+            if isinstance(cov, dict):
+                cov = cov.get("percent_covered", cov.get("coverage", cov.get("score")))
+            elif hasattr(cov, "percent_covered"):
+                cov = cov.percent_covered
             if cov is not None:
-                scores["test_coverage"] = max(0.0, min(100.0, round((float(cov) / 80.0) * 100.0, 1)))
+                try:
+                    scores["test_coverage"] = max(0.0, min(100.0, round((float(cov) / 80.0) * 100.0, 1)))
+                except (ValueError, TypeError):
+                    pass
 
         if "complexity" in data and "complexity_radon" not in scores:
             comp = data.get("complexity", {})

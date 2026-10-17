@@ -1,0 +1,45 @@
+# Git & VCS
+.git
+.gitignore
+.github
+
+# Virtual environments & Python caches
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.hypothesis
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+
+# Local databases & generated reports
+*.db
+*.sqlite
+*.sqlite3
+warden_reports/
+warden-results.sarif
+warden-executive-report.pdf
+warden-score.svg
+
+# IDE & Heavy subprojects
+.idea
+.vscode
+vscode-extension/node_modules
+vscode-extension/.vscode-test
+vscode-extension/out
+vscode-extension/dist
+node_modules
+
+# Secrets & Environment
+.env
+.env.*
+!.env.example

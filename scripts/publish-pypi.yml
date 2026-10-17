@@ -7,38 +7,53 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # Required for PyPI Trusted Publishing (OIDC)
 
 jobs:
-  pypi-publish:
-    name: Build & Upload to PyPI
+  build:
+    name: Build distributions
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
-      - name: Install uv & build tools
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Build wheel & sdist
+        run: uv build
 
-      - name: Build distribution packages (wheel & sdist)
-        run: |
-          uv venv
-          uv pip install build twine hatchling
-          uv run python -m build --outdir dist/
-          uv run twine check dist/*
+      - name: Validate metadata
+        run: uvx twine check dist/*
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Smoke-test built wheel (CLI & Benchmarks)
+        run: |
+          uv venv /tmp/warden-smoke-venv
+          uv pip install --python /tmp/warden-smoke-venv/bin/python dist/*.whl
+          /tmp/warden-smoke-venv/bin/warden --version
+          /tmp/warden-smoke-venv/bin/warden bench --json > /dev/null
+
+      - uses: actions/upload-artifact@v4
         with:
-          skip-existing: true
-          verbose: true
-          # If using API token instead of trusted publishing:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish (Trusted Publishing / OIDC)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # OIDC token for PyPI Trusted Publishing — no long-lived API secret
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

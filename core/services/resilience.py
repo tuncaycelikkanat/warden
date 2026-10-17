@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 ABSURD_TIMEOUT_THRESHOLD = 60.0
 HTTP_CLIENT_CONSTRUCTORS = {"Session", "Client", "AsyncClient"}
-HTTP_METHODS = {"get", "post", "put", "delete", "patch", "request"}
+HTTP_METHODS = {"get", "post", "put", "delete", "patch", "request", "head", "options"}
 
 
 @dataclass

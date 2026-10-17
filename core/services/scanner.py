@@ -37,24 +37,37 @@ class SecurityScannerService:
         if not Path(file_path).exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        command = ["semgrep"]
+        import shutil
+        import sys
+
+        semgrep_bin = shutil.which("semgrep")
+        if not semgrep_bin:
+            venv_semgrep = Path(sys.executable).resolve().parent / "semgrep"
+            local_venv_semgrep = Path(__file__).resolve().parent.parent.parent / ".venv" / "bin" / "semgrep"
+            if venv_semgrep.exists():
+                semgrep_bin = str(venv_semgrep)
+            elif local_venv_semgrep.exists():
+                semgrep_bin = str(local_venv_semgrep)
+            else:
+                semgrep_bin = "semgrep"
+
+        command = [semgrep_bin]
         for rd in self.rule_dirs:
             command.extend(["--config", rd])
         command.extend(["--json", file_path])
 
-        
         try:
             # Semgrep returns exit code 1 if it finds issues, so we don't use check=True
             result = subprocess.run(command, capture_output=True, text=True, check=False)
-            
+
             if not result.stdout.strip():
                 logger.error(f"Semgrep failed with stderr: {result.stderr}")
                 return []
-                
+
             parsed_output = json.loads(result.stdout)
             return parsed_output.get("results", [])
-            
-        except subprocess.SubprocessError as e:
+
+        except (subprocess.SubprocessError, OSError) as e:
             logger.error(f"Failed to run semgrep: {e}")
             return []
         except json.JSONDecodeError as e:

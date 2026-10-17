@@ -51,7 +51,7 @@ def test_run_audit_command_invalid_path():
     with patch("core.utils.path_validator.validate_audit_path", side_effect=ValueError("Invalid path")):
         with pytest.raises(SystemExit) as exc:
             _run_audit_command("nonexistent/path/here")
-        assert exc.value.code == 1
+        assert exc.value.code == 3
 
 
 def test_run_audit_command_success(tmp_path):
@@ -103,6 +103,60 @@ def test_run_audit_command_min_score_failure(tmp_path):
                 incremental=False,
             )
         assert exc.value.code == 1
+
+
+def _patched_audit(tmp_path, mock_res):
+    from contextlib import ExitStack
+
+    stack = ExitStack()
+    stack.enter_context(patch("core.utils.path_validator.validate_audit_path", return_value=tmp_path))
+    stack.enter_context(patch("core.services.orchestrator.AuditOrchestrator.run_full_audit", return_value=mock_res))
+    stack.enter_context(patch("core.services.report.AuditReportService.save_to_db", return_value=7))
+    stack.enter_context(
+        patch("core.services.report.AuditReportService.generate_markdown", return_value=str(tmp_path / "r.md"))
+    )
+    return stack
+
+
+_CRITICAL_RES = {
+    "scorecard": {"total_score": 95, "grade": "A"},
+    "vibe_coding": None,
+    "critical_findings": {"secret_leaks": 1, "sast_errors": 0, "vulnerable_dependencies": 0, "total": 1},
+}
+
+
+def test_fail_on_critical_exits_with_security_violation(tmp_path):
+    with _patched_audit(tmp_path, _CRITICAL_RES), pytest.raises(SystemExit) as exc:
+        _run_audit_command(str(tmp_path), min_score=80, fail_on_critical=True)
+    assert exc.value.code == 2
+
+
+def test_criticals_do_not_fail_gate_without_opt_in(tmp_path):
+    with _patched_audit(tmp_path, _CRITICAL_RES):
+        _run_audit_command(str(tmp_path), min_score=80)
+
+
+def test_json_format_writes_only_json_to_stdout(tmp_path, capsys):
+    import json
+
+    with _patched_audit(tmp_path, _CRITICAL_RES):
+        _run_audit_command(str(tmp_path), output_format="json")
+
+    out, err = capsys.readouterr()
+    payload = json.loads(out)
+    assert payload["audit_id"] == 7
+    assert payload["exit_code"] == 0
+    assert payload["scorecard"]["total_score"] == 95
+    assert payload["critical_findings"]["total"] == 1
+    assert "Audit complete" in err
+
+
+def test_unexpected_failure_maps_to_execution_error(tmp_path):
+    with patch("core.utils.path_validator.validate_audit_path", return_value=tmp_path), \
+         patch("core.services.orchestrator.AuditOrchestrator.run_full_audit", side_effect=RuntimeError("boom")), \
+         pytest.raises(SystemExit) as exc:
+        _run_audit_command(str(tmp_path))
+    assert exc.value.code == 3
 
 
 def test_run_milestone_command_not_found():
@@ -167,11 +221,17 @@ def test_cli_audit_with_target():
                 full_history=False,
                 incremental=True,
                 since_commit=None,
+                fail_on_critical=False,
+                output_format="text",
             )
 
 
 def test_cli_audit_with_path_flag():
-    with patch.object(sys, "argv", ["warden", "audit", "--path", "/other/path", "--full-history", "--since-commit", "main"]):
+    argv = [
+        "warden", "audit", "--path", "/other/path", "--full-history", "--since-commit", "main",
+        "--fail-on-critical", "--format", "json",
+    ]
+    with patch.object(sys, "argv", argv):
         with patch("core.main._run_audit_command") as mock_run:
             cli()
             mock_run.assert_called_once_with(
@@ -180,6 +240,8 @@ def test_cli_audit_with_path_flag():
                 full_history=True,
                 incremental=False,
                 since_commit="main",
+                fail_on_critical=True,
+                output_format="json",
             )
 
 

@@ -70,12 +70,33 @@ resource "aws_ecs_task_definition" "warden_task" {
           hostPort      = 8000
         }
       ]
+      environment = [
+        {
+          name  = "WARDEN_AUTH_ENABLED"
+          value = "true"
+        }
+      ]
       secrets = [
         {
           name      = "GEMINI_API_KEY"
           valueFrom = "arn:aws:secretsmanager:${var.aws_region}:*:secret:warden/gemini-api-key"
+        },
+        {
+          name      = "DATABASE_URL"
+          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:*:secret:warden/database-url"
+        },
+        {
+          name      = "WARDEN_JWT_SECRET"
+          valueFrom = "arn:aws:secretsmanager:${var.aws_region}:*:secret:warden/jwt-secret"
         }
       ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 15
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {

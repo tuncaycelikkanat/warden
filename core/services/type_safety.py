@@ -64,7 +64,7 @@ class TypeSafetyService:
         baseline_config = Path(__file__).resolve().parent.parent / "rules" / "mypy_baseline.ini"
         exclusion_pattern = get_scan_exclusion_pattern(
             repo_path,
-            extra=["fixtures", "test_data", "tests/fixtures", "tests/test_data", "dummy_"],
+            extra=["fixtures", "test_data", "tests/fixtures", "tests/test_data"],
         )
 
         safe_bin = shutil.which(mypy_base[0]) or mypy_base[0]

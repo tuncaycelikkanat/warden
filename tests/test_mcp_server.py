@@ -24,9 +24,11 @@ class TestMCPServer:
             "warden_check_cycles",
             "warden_check_entropy",
             "warden_audit",
+            "warden_check_boundaries",
+            "warden_check_hallucinations",
         }
         assert expected.issubset(names)
-        assert len(tools) == 9
+        assert len(tools) == 11
 
     def test_warden_risk_score_clean_code(self) -> None:
         clean_code = "def add(a: int, b: int) -> int:\n    return a + b\n"

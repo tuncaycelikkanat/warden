@@ -74,20 +74,52 @@ Documentation = "https://github.com/tuncaycelikkanat/warden/tree/master/docs"
 [project.scripts]
 warden = "core.main:cli"
 
+[project.entry-points."warden.analyzers"]
+security = "core.analyzers.adapters:SecurityAnalyzer"
+dependencies = "core.analyzers.adapters:DependencyAnalyzer"
+complexity = "core.analyzers.adapters:ComplexityAnalyzer"
+lint = "core.analyzers.adapters:LintAnalyzer"
+leaks = "core.analyzers.adapters:SecretLeakAnalyzer"
+coverage = "core.analyzers.adapters:CoverageAnalyzer"
+docs = "core.analyzers.adapters:DocumentationAnalyzer"
+resilience = "core.analyzers.adapters:ResilienceAnalyzer"
+license = "core.analyzers.adapters:LicenseAnalyzer"
+type_safety = "core.analyzers.adapters:TypeSafetyAnalyzer"
+test_quality = "core.analyzers.adapters:TestQualityAnalyzer"
+cicd = "core.analyzers.adapters:CiCdAnalyzer"
+docker = "core.analyzers.adapters:DockerAnalyzer"
+commit_hygiene = "core.analyzers.adapters:CommitHygieneAnalyzer"
+duplication = "core.analyzers.adapters:DuplicationAnalyzer"
+tech_debt = "core.analyzers.adapters:TechDebtAnalyzer"
+
+[project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.1.0",
+]
+redis = [
+    "redis>=5.0.0",
+]
+full = [
+    "psycopg[binary]>=3.1.0",
+    "redis>=5.0.0",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["core", "mcp_server"]
+packages = ["core", "mcp_server", "benchmarks"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "/core",
     "/mcp_server",
+    "/benchmarks",
+    "/warden.config.yaml",
     "/README.md",
     "/LICENSE",
     "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]
-norecursedirs = ["fixtures", "tests/fixtures", ".venv"]
+norecursedirs = [".*", "fixtures", "tests/fixtures", ".venv"]
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,55 @@
+services:
+  warden:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: warden_prod_api
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-warden}:${POSTGRES_PASSWORD:-warden_prod_secret}@postgres:5432/${POSTGRES_DB:-warden}
+      - REDIS_URL=redis://redis:6379/0
+      - WARDEN_AUTH_ENABLED=${WARDEN_AUTH_ENABLED:-true}
+      - WARDEN_JWT_SECRET=${WARDEN_JWT_SECRET:-change-this-in-production-env}
+    volumes:
+      - ./warden_reports:/app/warden_reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: warden_prod_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-warden}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-warden_prod_secret}
+      - POSTGRES_DB=${POSTGRES_DB:-warden}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warden} -d ${POSTGRES_DB:-warden}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: warden_prod_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:

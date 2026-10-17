@@ -22,9 +22,6 @@ def discover_source_files(repo_path: Path) -> list[Path]:
         dirs[:] = [d for d in dirs if d not in excluded_dirs and not d.startswith('.')]
         
         for file in files:
-            # Exclude dummy/scratch test files
-            if file.startswith("dummy_"):
-                continue
             file_path = Path(root) / file
             if file_path.suffix in allowed_extensions:
                 source_files.append(file_path)

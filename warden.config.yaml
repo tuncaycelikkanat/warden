@@ -37,6 +37,17 @@ llm:
   temperature: 0.0
   timeout_sec: 60
 
+# Architecture-as-Code Layer Boundary Contracts
+architecture_boundaries:
+  - source: "core/api/**"
+    forbid_imports:
+      - "sqlite3"
+    reason: "API routes must not execute raw SQLite queries directly; delegate to core/services."
+  - source: "core/cli/**"
+    forbid_imports:
+      - "fastapi"
+    reason: "CLI layer must remain decoupled from FastAPI HTTP transport."
+
 # Ignore Rules & Paths
 ignore:
   paths:
@@ -46,3 +57,4 @@ ignore:
     - node_modules/
     - fixtures/
   rules: []
+

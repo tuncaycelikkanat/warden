@@ -1,0 +1,68 @@
+{
+  "overall_accuracy": 1.0,
+  "macro_f1": 1.0,
+  "categories": {
+    "missing_timeout": {
+      "category": "missing_timeout",
+      "total_samples": 7,
+      "tp": 4,
+      "fp": 0,
+      "tn": 3,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "accuracy": 1.0
+    },
+    "bare_except": {
+      "category": "bare_except",
+      "total_samples": 5,
+      "tp": 2,
+      "fp": 0,
+      "tn": 3,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "accuracy": 1.0
+    },
+    "silent_swallow": {
+      "category": "silent_swallow",
+      "total_samples": 6,
+      "tp": 3,
+      "fp": 0,
+      "tn": 3,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "accuracy": 1.0
+    },
+    "secret_entropy": {
+      "category": "secret_entropy",
+      "total_samples": 7,
+      "tp": 3,
+      "fp": 0,
+      "tn": 4,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "accuracy": 1.0
+    },
+    "ai_slop": {
+      "category": "ai_slop",
+      "total_samples": 7,
+      "tp": 4,
+      "fp": 0,
+      "tn": 3,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "accuracy": 1.0
+    }
+  },
+  "failure_count": 0,
+  "failures": []
+}

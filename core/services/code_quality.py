@@ -69,7 +69,7 @@ class CodeComplexityService:
         cmd_prefix = self._resolve_radon_cmd(repo_path)
         safe_bin = shutil.which(cmd_prefix[0]) or cmd_prefix[0]
         ignore_dirs = ",".join(get_scan_exclusions(repo_path))
-        exclude_globs = "*dummy_*,*_pb2.py,*.g.py"
+        exclude_globs = "*_pb2.py,*.g.py"
 
         cmd = [
             safe_bin,
@@ -304,7 +304,7 @@ class LintStyleService:
 
         exclusions = get_scan_exclusions(
             repo_path,
-            extra=["fixtures", "test_data", "tests/fixtures", "tests/test_data", "dummy_*.py"],
+            extra=["fixtures", "test_data", "tests/fixtures", "tests/test_data"],
         )
         exclude_arg = ",".join(exclusions)
 

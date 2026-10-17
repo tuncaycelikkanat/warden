@@ -15,7 +15,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 
-JWT_SECRET = os.getenv("WARDEN_JWT_SECRET", "warden-insecure-dev-secret-change-in-production")
+DEFAULT_DEV_JWT_SECRET = "warden-insecure-dev-secret-change-in-production"
+JWT_SECRET = (
+    os.getenv("WARDEN_JWT_SECRET")
+    or os.getenv("JWT_SECRET_KEY")
+    or DEFAULT_DEV_JWT_SECRET
+)
 AUTH_ENABLED = os.getenv("WARDEN_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
 
 security_bearer = HTTPBearer(auto_error=False)

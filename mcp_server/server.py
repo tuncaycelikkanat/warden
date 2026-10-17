@@ -175,6 +175,34 @@ async def list_tools() -> list[Tool]:
                 "required": ["repo_path"],
             },
         ),
+        Tool(
+            name="warden_check_boundaries",
+            description="Enforces Architecture-as-Code layer boundary contracts from warden.config.yaml to block forbidden cross-layer imports.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Absolute path to the repository to check",
+                    },
+                },
+                "required": ["repo_path"],
+            },
+        ),
+        Tool(
+            name="warden_check_hallucinations",
+            description="Detects AI-hallucinated imports, non-existent stdlib symbols, and invalid method calls before runtime.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_path": {
+                        "type": "string",
+                        "description": "Absolute path to the repository to scan",
+                    },
+                },
+                "required": ["repo_path"],
+            },
+        ),
     ]
 
 
@@ -497,6 +525,36 @@ async def _handle_check_entropy(arguments: dict[str, Any]) -> list[TextContent]:
         return [TextContent(type="text", text=f"Error checking entropy: {e!s}")]
 
 
+async def _handle_check_boundaries(arguments: dict[str, Any]) -> list[TextContent]:
+    repo_path = arguments.get("repo_path")
+    if not repo_path:
+        return [TextContent(type="text", text="Error: repo_path is required")]
+
+    try:
+        from core.services.architecture_boundary import ArchitectureBoundaryEnforcer
+
+        enforcer = ArchitectureBoundaryEnforcer()
+        res = enforcer.check_repository(Path(repo_path))
+        return [TextContent(type="text", text=json.dumps(res.to_dict(), indent=2, ensure_ascii=False))]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error checking boundaries: {e!s}")]
+
+
+async def _handle_check_hallucinations(arguments: dict[str, Any]) -> list[TextContent]:
+    repo_path = arguments.get("repo_path")
+    if not repo_path:
+        return [TextContent(type="text", text="Error: repo_path is required")]
+
+    try:
+        from core.services.hallucination_detector import HallucinatedAPIDetector
+
+        detector = HallucinatedAPIDetector()
+        res = detector.scan_repository(Path(repo_path))
+        return [TextContent(type="text", text=json.dumps(res.to_dict(), indent=2, ensure_ascii=False))]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error checking hallucinations: {e!s}")]
+
+
 TOOL_HANDLERS = {
     "security_scan": _handle_security_scan,
     "check_package": _handle_check_package,
@@ -507,6 +565,8 @@ TOOL_HANDLERS = {
     "warden_fix_suggestion": _handle_fix_suggestion,
     "warden_check_cycles": _handle_check_cycles,
     "warden_check_entropy": _handle_check_entropy,
+    "warden_check_boundaries": _handle_check_boundaries,
+    "warden_check_hallucinations": _handle_check_hallucinations,
 }
 
 

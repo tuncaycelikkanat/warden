@@ -1,0 +1,105 @@
+name: "WARDEN — AI & Vibe-Coding Governance Gate"
+description: "Autonomous Code Audit, Security, Fake Test & Vibe-Coding Quality Gate for CI/CD pipelines."
+author: "Tuncay Celikkanat"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Target repository or directory path to audit"
+    required: false
+    default: "."
+  min-score:
+    description: "Minimum required quality score (0-100) to pass the gate"
+    required: false
+    default: "75"
+  incremental:
+    description: "Scan only files changed since base branch or commit ('true' or 'false')"
+    required: false
+    default: "false"
+  since-commit:
+    description: "Base git ref for incremental mode (e.g. origin/main)"
+    required: false
+    default: ""
+  fail-on-critical:
+    description: "Fail immediately with exit code 2 on critical security or secret leaks ('true' or 'false')"
+    required: false
+    default: "true"
+  export-sarif:
+    description: "Generate OASIS SARIF v2.1.0 output file for GitHub Code Scanning ('true' or 'false')"
+    required: false
+    default: "true"
+  sarif-output:
+    description: "Output path for generated SARIF file"
+    required: false
+    default: "warden-results.sarif"
+  gemini-api-key:
+    description: "Optional Gemini API key for Layer 2 semantic rubric evaluation"
+    required: false
+    default: ""
+  python-version:
+    description: "Python version to run WARDEN with"
+    required: false
+    default: "3.12"
+
+outputs:
+  total-score:
+    description: "Overall WARDEN audit score (0-100)"
+    value: ${{ steps.audit.outputs.total_score }}
+  grade:
+    description: "Letter grade (A+, A, B, C, D, F)"
+    value: ${{ steps.audit.outputs.grade }}
+  sarif-file:
+    description: "Path to generated SARIF report if enabled"
+    value: ${{ steps.audit.outputs.sarif_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up uv & Python
+      uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install WARDEN
+      shell: bash
+      run: |
+        uv pip install --system "${{ github.action_path }}"
+
+    - name: Run WARDEN Quality Gate & Audit
+      id: audit
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+      run: |
+        ARGS=("audit" "--path" "${{ inputs.path }}" "--min-score" "${{ inputs.min-score }}" "--format" "json")
+        if [ "${{ inputs.incremental }}" = "true" ]; then
+          ARGS+=("--incremental")
+        fi
+        if [ -n "${{ inputs.since-commit }}" ]; then
+          ARGS+=("--since-commit" "${{ inputs.since-commit }}")
+        fi
+        if [ "${{ inputs.fail-on-critical }}" = "true" ]; then
+          ARGS+=("--fail-on-critical")
+        fi
+
+        set +e
+        warden "${ARGS[@]}" > /tmp/warden_audit_result.json
+        EXIT_CODE=$?
+        set -e
+
+        if [ -f /tmp/warden_audit_result.json ]; then
+          SCORE=$(python3 -c "import json; d=json.load(open('/tmp/warden_audit_result.json')); print(d.get('scorecard', {}).get('total_score', 0))" 2>/dev/null || echo "0")
+          GRADE=$(python3 -c "import json; d=json.load(open('/tmp/warden_audit_result.json')); print(d.get('scorecard', {}).get('grade', 'N/A'))" 2>/dev/null || echo "N/A")
+          echo "total_score=${SCORE}" >> "$GITHUB_OUTPUT"
+          echo "grade=${GRADE}" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [ "${{ inputs.export-sarif }}" = "true" ]; then
+          warden export-sarif "${{ inputs.path }}" --output "${{ inputs.sarif-output }}" || true
+          echo "sarif_file=${{ inputs.sarif-output }}" >> "$GITHUB_OUTPUT"
+        fi
+
+        exit $EXIT_CODE

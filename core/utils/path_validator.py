@@ -63,3 +63,32 @@ def validate_audit_path(raw_path: str) -> Path:
         )
 
     return path
+
+
+def validate_scan_file_path(raw_path: str) -> Path:
+    """Resolves and validates a target file path for single-file scanning.
+
+    Raises:
+        ValueError: If the path points to a forbidden system directory.
+        FileNotFoundError: If the file does not exist or is not a regular file.
+    """
+    raw_str = str(Path(raw_path))
+    path = Path(raw_path).resolve()
+    path_str = str(path)
+
+    for forbidden in FORBIDDEN_PATH_PREFIXES:
+        if (
+            path_str == forbidden
+            or path_str.startswith(forbidden + "/")
+            or raw_str == forbidden
+            or raw_str.startswith(forbidden + "/")
+        ):
+            raise ValueError(
+                f"Güvenlik: '{path}' denetim için yasaklı bir sistem dizinidir."
+            )
+
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError("File not found")
+
+    return path
+

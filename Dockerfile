@@ -23,12 +23,14 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime system dependencies (Git + Gitleaks)
+# Install runtime system dependencies (Git + Multi-Arch Gitleaks)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     ca-certificates \
-    && curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_amd64.tar.gz" \
+    && ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then GL_ARCH="arm64"; else GL_ARCH="x64"; fi \
+    && curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_${GL_ARCH}.tar.gz" \
        | tar -xz -C /usr/local/bin gitleaks \
     && chmod +x /usr/local/bin/gitleaks \
     && rm -rf /var/lib/apt/lists/*
